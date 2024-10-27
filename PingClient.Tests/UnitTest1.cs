@@ -1,4 +1,4 @@
-namespace Ping.Tests;
+namespace PingClient.Tests;
 
 public class Tests
 {

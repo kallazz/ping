@@ -7,7 +7,7 @@ on:
     branches: [ "master" ]
 
 jobs:
-  test:
+  test-client:
 
     runs-on: ubuntu-latest
 
@@ -18,16 +18,16 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      working-directory: ./Ping.Tests
+      working-directory: ./PingClient.Tests
       run: dotnet restore
     - name: Build
-      working-directory: ./Ping.Tests
+      working-directory: ./PingClient.Tests
       run: dotnet build --no-restore
     - name: Test
-      working-directory: ./Ping.Tests
+      working-directory: ./PingClient.Tests
       run: dotnet test --no-build --verbosity normal
-      
-  format-tests:
+
+  test-server:
 
     runs-on: ubuntu-latest
 
@@ -38,13 +38,33 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      working-directory: ./Ping.Tests
+      working-directory: ./PingServer.Tests
+      run: dotnet restore
+    - name: Build
+      working-directory: ./PingServer.Tests
+      run: dotnet build --no-restore
+    - name: Test
+      working-directory: ./PingServer.Tests
+      run: dotnet test --no-build --verbosity normal
+
+  format-client-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./PingClient.Tests
       run: dotnet restore
     - name: Format
-      working-directory: ./Ping.Tests
+      working-directory: ./PingClient.Tests
       run: dotnet format --verify-no-changes --verbosity diagnostic
 
-  format-src:
+  format-server-tests:
 
     runs-on: ubuntu-latest
 
@@ -55,8 +75,42 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      working-directory: ./Ping
+      working-directory: ./PingServer.Tests
       run: dotnet restore
     - name: Format
-      working-directory: ./Ping
+      working-directory: ./PingServer.Tests
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  format-client-src:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./PingClient
+      run: dotnet restore
+    - name: Format
+      working-directory: ./PingClient
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  format-server-src:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./PingServer
+      run: dotnet restore
+    - name: Format
+      working-directory: ./PingServer
       run: dotnet format --verify-no-changes --verbosity diagnostic
