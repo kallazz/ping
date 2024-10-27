@@ -21,4 +21,8 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\PingServer\PingServer.csproj" />
+  </ItemGroup>
+
 </Project>
