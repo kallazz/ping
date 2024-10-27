@@ -1,0 +1,62 @@
+name: .NET
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./Ping.Tests
+      run: dotnet restore
+    - name: Build
+      working-directory: ./Ping.Tests
+      run: dotnet build --no-restore
+    - name: Test
+      working-directory: ./Ping.Tests
+      run: dotnet test --no-build --verbosity normal
+      
+  format-tests:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./Ping.Tests
+      run: dotnet restore
+    - name: Format
+      working-directory: ./Ping.Tests
+      run: dotnet format --verify-no-changes --verbosity diagnostic
+
+  format-src:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      working-directory: ./Ping
+      run: dotnet restore
+    - name: Format
+      working-directory: ./Ping
+      run: dotnet format --verify-no-changes --verbosity diagnostic
