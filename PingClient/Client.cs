@@ -6,71 +6,60 @@ using System.Text;
 
 namespace PingClient
 {
-    public static class Client
+    public class Client
     {
-        public static async Task ConnectAndDisconnectClientUsingMQTTv5()
+        public const string Host = "localhost";
+        public const int Port = 1883;
+
+        private readonly IMqttClient _mqttClient;
+        private readonly string _userId;
+
+        // TODO: in the future the id will be from the db
+        public Client(string userId)
         {
+            _userId = userId;
+
             var mqttFactory = new MqttFactory();
-
-            using (var mqttClient = mqttFactory.CreateMqttClient())
-            {
-                var mqttClientOptions = new MqttClientOptionsBuilder().WithTcpServer("localhost", 1883).WithProtocolVersion(MqttProtocolVersion.V500).Build();
-
-                await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
-
-                Console.WriteLine("The MQTT client is connected.");
-
-                _ = ReceiveMessagesAsync(mqttClient);
-
-                await SendMessageAsync(mqttClient);
-
-                await mqttClient.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().WithReason(MqttClientDisconnectOptionsReason.NormalDisconnection).Build());
-            }
+            _mqttClient = mqttFactory.CreateMqttClient();
         }
 
-        private static async Task SendMessageAsync(IMqttClient mqttClient)
+        public async Task Connect()
         {
-            while (true)
-            {
-                Console.Write("Enter the message to send (or type 'exit' to quit): ");
-                string message = Console.ReadLine() ?? string.Empty;
-
-                if (message?.ToLower() == "exit")
-                {
-                    break;
-                }
-
-                Console.Write("Enter the recipient ID: ");
-                string recipientId = Console.ReadLine() ?? string.Empty;
-
-                string topic = $"recipient/{recipientId}";
-
-                var mqttMessage = new MqttApplicationMessageBuilder()
-                    .WithTopic(topic)
-                    .WithPayload(message)
-                    .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
-                    .WithRetainFlag(false)
-                    .Build();
-
-                await mqttClient.PublishAsync(mqttMessage, CancellationToken.None);
-                Console.WriteLine($"Message sent to topic '{topic}': {message}");
-            }
+            var mqttClientOptions = new MqttClientOptionsBuilder().WithTcpServer(Host, Port).WithProtocolVersion(MqttProtocolVersion.V500).Build();
+            await _mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
         }
 
-        private static async Task ReceiveMessagesAsync(IMqttClient mqttClient)
+        public async Task Disconnect()
         {
-            mqttClient.ApplicationMessageReceivedAsync += async e =>
+            await _mqttClient.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().WithReason(MqttClientDisconnectOptionsReason.NormalDisconnection).Build());
+        }
+
+        public async Task SendMessage(string message, string recipientId)
+        {
+            var topic = $"recipient/{recipientId}";
+
+            var mqttMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(message)
+                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
+                .WithRetainFlag(false)
+                .Build();
+
+            await _mqttClient.PublishAsync(mqttMessage, CancellationToken.None);
+        }
+
+        public async Task ReceiveMessages()
+        {
+            _mqttClient.ApplicationMessageReceivedAsync += async e =>
             {
                 var topic = e.ApplicationMessage.Topic;
-                var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
-                Console.WriteLine($"Received message from topic '{topic}': {payload}");
+                var payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
+                Console.WriteLine($"\nReceived message from topic '{topic}': {payload}");
                 await Task.CompletedTask;
             };
 
-            // For now subscribe all topics
-            // TODO: Resolve problem with receiving self-send messages
-            await mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic("#").Build());
-            Console.WriteLine("Subscribed to all topics.");
+            var topic = $"recipient/{_userId}";
+            await _mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic(topic).Build());
         }
     }
 }

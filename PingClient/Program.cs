@@ -1,1 +1,1 @@
-﻿await PingClient.Client.ConnectAndDisconnectClientUsingMQTTv5();
+﻿PingClient.ClientManager.TerminalRun();
