@@ -3,6 +3,7 @@ using MQTTnet.Server;
 using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace PingServer
 {
@@ -26,6 +27,16 @@ namespace PingServer
                 clientIDs[e.ClientId] = clientId;
                 Console.WriteLine($"Client {e.ClientId} connected with assigned ID: {clientId}");
                 await Task.CompletedTask;
+            };
+
+            mqttServer.InterceptingPublishAsync += args =>
+            {
+                var topic = args.ApplicationMessage.Topic;
+                var message = Encoding.UTF8.GetString(args.ApplicationMessage.PayloadSegment.ToArray());
+                var clientId = args.ClientId;
+                Console.WriteLine($"Received message on topic '{topic}': {message}");
+                Console.WriteLine($"Message was sent by user with ClientId: {clientId}");
+                return Task.CompletedTask;
             };
 
             await mqttServer.StartAsync();
