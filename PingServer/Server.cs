@@ -1,27 +1,39 @@
 using MQTTnet;
-using MQTTnet.Diagnostics;
-using MQTTnet.Protocol;
 using MQTTnet.Server;
+using System;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace PingServer
 {
     public static class Server
     {
+        private static ConcurrentDictionary<string, string> clientIDs = new ConcurrentDictionary<string, string>();
+
         public static async Task Run()
         {
             var mqttFactory = new MqttFactory();
 
-            var mqttServerOptions = new MqttServerOptionsBuilder().WithDefaultEndpoint().Build();
+            var mqttServerOptions = new MqttServerOptionsBuilder()
+                .WithDefaultEndpoint()
+                .Build();
 
-            using (var mqttServer = mqttFactory.CreateMqttServer(mqttServerOptions))
+            var mqttServer = mqttFactory.CreateMqttServer(mqttServerOptions);
+
+            mqttServer.ClientConnectedAsync += async e =>
             {
-                await mqttServer.StartAsync();
+                var clientId = Guid.NewGuid().ToString();
+                clientIDs[e.ClientId] = clientId;
+                Console.WriteLine($"Client {e.ClientId} connected with assigned ID: {clientId}");
+                await Task.CompletedTask;
+            };
 
-                Console.WriteLine("Press Enter to exit.");
-                Console.ReadLine();
+            await mqttServer.StartAsync();
 
-                await mqttServer.StopAsync();
-            }
+            Console.WriteLine("Press Enter to exit.");
+            Console.ReadLine();
+
+            await mqttServer.StopAsync();
         }
     }
 }
