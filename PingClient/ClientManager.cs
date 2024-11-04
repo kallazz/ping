@@ -2,7 +2,7 @@ namespace PingClient
 {
     public static class ClientManager
     {
-        public static async void TerminalRun()
+        public static async Task TerminalRun()
         {
             Console.Write("Enter your user ID: ");
             var userId = Console.ReadLine();

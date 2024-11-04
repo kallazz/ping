@@ -1,1 +1,1 @@
-﻿PingClient.ClientManager.TerminalRun();
+﻿await PingClient.ClientManager.TerminalRun();
