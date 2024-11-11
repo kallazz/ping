@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
+    <PackageReference Include="System.Security.Cryptography.Cng" Version="5.0.0" />
   </ItemGroup>
 
 </Project>
