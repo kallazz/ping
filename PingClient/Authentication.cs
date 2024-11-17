@@ -1,6 +1,4 @@
-using System;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Net.Mail;
 
 namespace PingClient
@@ -14,7 +12,8 @@ namespace PingClient
         PasswordTooShort,
         PasswordInvalidFormat,
         EmailInvalidFormat,
-        DatabaseError
+        DatabaseError,
+        InvalidCredentials
     }
 
     public class Authentication
@@ -30,7 +29,7 @@ namespace PingClient
 
         public async Task<ValidationError> RegisterUser(string username, string email, string password1, string password2)
         {
-            ValidationError error = ValidateInput(username, email, password1, password2);
+            ValidationError error = ValidateRegistrationInput(username, email, password1, password2);
             if (error != ValidationError.None)
             {
                 return error;
@@ -47,7 +46,32 @@ namespace PingClient
             return ValidationError.None;
         }
 
-        private ValidationError ValidateInput(string username, string email, string password1, string password2)
+        public async Task<ValidationError> LoginUser(string usernameOrEmail, string password)
+        {
+            if (string.IsNullOrWhiteSpace(usernameOrEmail) || string.IsNullOrWhiteSpace(password))
+            {
+                return ValidationError.InvalidCredentials;
+            }
+
+            string? hashedPasswordFromDatabase = IsValidEmail(usernameOrEmail)
+                ? await _databaseService.GetPasswordForUserByEmail(usernameOrEmail)
+                : await _databaseService.GetPasswordForUserByUsername(usernameOrEmail);
+
+            if (hashedPasswordFromDatabase == null)
+            {
+                return ValidationError.InvalidCredentials;
+            }
+
+            string hashedPassword = HashPassword(password);
+            if (hashedPassword != hashedPasswordFromDatabase)
+            {
+                return ValidationError.InvalidCredentials;
+            }
+
+            return ValidationError.None;
+        }
+
+        private ValidationError ValidateRegistrationInput(string username, string email, string password1, string password2)
         {
             if (username.Length < MinUsernameLength)
             {
