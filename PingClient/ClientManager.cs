@@ -7,15 +7,32 @@ namespace PingClient
     {
         public static async Task TerminalRun()
         {
-            Console.Write("Enter your user ID: ");
-            var userId = Console.ReadLine();
-            if (string.IsNullOrEmpty(userId))
+            var grpcClient = new Client();
+
+            Console.Write("Enter your username: ");
+            var username = Console.ReadLine();
+            if (string.IsNullOrEmpty(username))
             {
                 Console.Write("Id was not provided");
                 Environment.Exit(1);
             }
 
-            var grpcClient = new Client(userId);
+            Console.Write("Enter your password: ");
+            var password = Console.ReadLine();
+            if (string.IsNullOrEmpty(password))
+            {
+                Console.Write("Password was not provided");
+                Environment.Exit(1);
+            }
+
+            bool loginSuccess = await grpcClient.Login(username, password);
+            if (!loginSuccess)
+            {
+                Console.WriteLine("Login failed. Please check your username and password.");
+                return;
+            }
+
+            Console.WriteLine("Login successful!");
 
             while (true)
             {

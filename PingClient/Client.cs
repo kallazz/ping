@@ -9,14 +9,13 @@ namespace PingClient
     public class Client
     {
         private readonly PingService.PingServiceClient _client;
-        private readonly string _userId;
+        private string? clientId;
         private Encryptor encryptor;
         private bool keyExchangeCompleted;
         public byte[]? PublicKey => encryptor.PublicKey;
 
-        public Client(string userId)
+        public Client()
         {
-            _userId = userId;
             encryptor = new Encryptor();
             keyExchangeCompleted = false;
 
@@ -25,9 +24,40 @@ namespace PingClient
             
             var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = handler });
             _client = new PingService.PingServiceClient(channel);
+
         }
 
         public bool KeyExchangeCompleted => keyExchangeCompleted;
+
+        public async Task<bool> Login(string username, string password)
+    {
+        try
+        {
+            var request = new LoginRequest
+            {
+                Username = username,
+                Password = password
+            };
+
+            var response = await _client.LoginAsync(request);
+            if (response.Status == "Login successful")
+            {
+                clientId = response.ClientId;
+                Console.WriteLine($"User {username} logged in with User ID: {clientId}");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine($"Login failed for user {username}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred during login: {ex.Message}");
+            return false;
+        }
+    }
 
         public async Task SendMessage(string message, string recipientId)
         {
@@ -39,7 +69,7 @@ namespace PingClient
             var encryptedMessage = encryptor.Encrypt(message);
             var request = new MessageRequest
             {
-                UserId = _userId,
+                ClientId = clientId,
                 RecipientId = recipientId,
                 Message = Convert.ToBase64String(encryptedMessage)
             };
@@ -58,7 +88,7 @@ namespace PingClient
 
             var request = new KeyExchangeRequest
             {
-                UserId = _userId,
+                ClientId = clientId,
                 RecipientId = recipientId
             };
 
