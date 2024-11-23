@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option csharp_namespace = "PingServer";
+
+service PingService {
+  rpc SendMessage (MessageRequest) returns (MessageResponse);
+  rpc ProposeKeyExchange (KeyExchangeRequest) returns (KeyExchangeResponse);
+}
+
+message MessageRequest {
+  string userId = 1;
+  string recipientId = 2;
+  string message = 3;
+}
+
+message MessageResponse {
+  string status = 1;
+}
+
+message KeyExchangeRequest {
+  string userId = 1;
+  string recipientId = 2;
+}
+
+message KeyExchangeResponse {
+  string status = 1;
+}

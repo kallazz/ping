@@ -1,3 +1,6 @@
+using System;
+using System.Threading.Tasks;
+
 namespace PingClient
 {
     public static class ClientManager
@@ -9,12 +12,10 @@ namespace PingClient
             if (string.IsNullOrEmpty(userId))
             {
                 Console.Write("Id was not provided");
-                System.Environment.Exit(1);
+                Environment.Exit(1);
             }
 
-            var mqttClient = new PingClient.Client(userId);
-            await mqttClient.Connect();
-            await mqttClient.ReceiveMessages();
+            var grpcClient = new Client(userId);
 
             while (true)
             {
@@ -38,15 +39,13 @@ namespace PingClient
                         Console.Write("Enter the recipient ID: ");
                         var recipientId = Console.ReadLine() ?? string.Empty;
 
-                        if (!mqttClient.KeyExchangeCompleted)
+                        if (!grpcClient.KeyExchangeCompleted)
                         {
-                            await mqttClient.ProposeKeyExchange(recipientId);
-
+                            await grpcClient.ProposeKeyExchange(recipientId);
                             await Task.Delay(1000);
                         }
 
-                        await mqttClient.SendMessage(message, recipientId);
-
+                        await grpcClient.SendMessage(message, recipientId);
                         Console.WriteLine($"Message sent to user '{recipientId}': {message}");
                         break;
 
@@ -54,8 +53,7 @@ namespace PingClient
                         Console.Write("Enter the recipient ID: ");
                         recipientId = Console.ReadLine() ?? string.Empty;
 
-                        await mqttClient.ProposeKeyExchange(recipientId);
-
+                        await grpcClient.ProposeKeyExchange(recipientId);
                         Console.WriteLine($"Key exchange proposed to user '{recipientId}'");
                         break;
 
@@ -64,8 +62,6 @@ namespace PingClient
                         break;
                 }
             }
-
-            await mqttClient.Disconnect();
         }
     }
 }

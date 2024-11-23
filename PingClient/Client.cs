@@ -1,147 +1,84 @@
-using System.Security.Cryptography;
+using Grpc.Net.Client;
+using System;
 using System.Text;
-using MQTTnet;
-using MQTTnet.Client;
-using MQTTnet.Formatter;
-using MQTTnet.Protocol;
+using System.Threading.Tasks;
+using PingServer;
 
 namespace PingClient
 {
     public class Client
     {
-        public const string Host = "localhost";
-        public const int Port = 1883;
-
-        private readonly IMqttClient _mqttClient;
+        private readonly PingService.PingServiceClient _client;
         private readonly string _userId;
-        private Encryptor _encryptor;
-        private bool _keyExchangeCompleted;
-        public byte[]? PublicKey => _encryptor.PublicKey;
+        private Encryptor encryptor;
+        private bool keyExchangeCompleted;
+        public byte[]? PublicKey => encryptor.PublicKey;
 
         public Client(string userId)
         {
             _userId = userId;
-            _encryptor = new Encryptor();
-            _keyExchangeCompleted = false;
+            encryptor = new Encryptor();
+            keyExchangeCompleted = false;
 
-            var mqttFactory = new MqttFactory();
-            _mqttClient = mqttFactory.CreateMqttClient();
+            var handler = new HttpClientHandler();
+            handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+            
+            var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = handler });
+            _client = new PingService.PingServiceClient(channel);
         }
 
-        public bool KeyExchangeCompleted => _keyExchangeCompleted;
-
-        public async Task Connect()
-        {
-            var mqttClientOptions = new MqttClientOptionsBuilder().WithTcpServer(Host, Port).WithProtocolVersion(MqttProtocolVersion.V500).Build();
-            await _mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
-        }
-
-        public async Task Disconnect()
-        {
-            await _mqttClient.DisconnectAsync(new MqttClientDisconnectOptionsBuilder().WithReason(MqttClientDisconnectOptionsReason.NormalDisconnection).Build());
-        }
+        public bool KeyExchangeCompleted => keyExchangeCompleted;
 
         public async Task SendMessage(string message, string recipientId)
         {
-            if (!_keyExchangeCompleted)
+            if (!keyExchangeCompleted)
             {
                 throw new InvalidOperationException("Shared key has not been established.");
             }
 
-            var topic = $"recipient/{recipientId}";
-
-            var encryptedMessage = _encryptor.Encrypt(message);
-            var mqttMessage = new MqttApplicationMessageBuilder()
-                .WithTopic(topic)
-                .WithPayload(encryptedMessage)
-                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
-                .WithRetainFlag(false)
-                .Build();
-
-            await _mqttClient.PublishAsync(mqttMessage, CancellationToken.None);
-        }
-
-        public async Task ReceiveMessages()
-        {
-            _mqttClient.ApplicationMessageReceivedAsync += async e =>
+            var encryptedMessage = encryptor.Encrypt(message);
+            var request = new MessageRequest
             {
-                var topic = e.ApplicationMessage.Topic;
-                var payload = e.ApplicationMessage.PayloadSegment.ToArray();
-                var message = Encoding.UTF8.GetString(payload);
-
-                if (topic.StartsWith("recipient/"))
-                {
-                    if (message.StartsWith("KeyExchange:"))
-                    {
-                        var parts = message.Split(':');
-                        var senderId = parts[1];
-                        var otherPublicKey = Convert.FromBase64String(parts[2]);
-                        _encryptor.GenerateSharedKey(otherPublicKey);
-                        Console.WriteLine($"Shared key established with user '{senderId}'.");
-
-                        if (!_keyExchangeCompleted)
-                        {
-                            _keyExchangeCompleted = true;
-                            // Respond with own public key
-                            await RespondToKeyExchange(senderId);
-                        }
-                    }
-                    else
-                    {
-                        var decryptedMessage = _encryptor.Decrypt(payload);
-                        Console.WriteLine($"\nReceived message from topic '{topic}': {decryptedMessage}");
-                    }
-                }
-
-                await Task.CompletedTask;
+                UserId = _userId,
+                RecipientId = recipientId,
+                Message = Convert.ToBase64String(encryptedMessage)
             };
 
-            var topic = $"recipient/{_userId}";
-            await _mqttClient.SubscribeAsync(new MqttTopicFilterBuilder().WithTopic(topic).Build());
-        }
-
-        public void GenerateSharedKey(byte[] otherPublicKey)
-        {
-            _encryptor.GenerateSharedKey(otherPublicKey);
-        }
-
-        public void GenerateNewKeyPair()
-        {
-            _encryptor.GenerateNewKeyPair();
+            var response = await _client.SendMessageAsync(request);
+            Console.WriteLine(response.Status);
         }
 
         public async Task ProposeKeyExchange(string recipientId)
         {
-            if (_keyExchangeCompleted)
+            if (keyExchangeCompleted)
             {
                 Console.WriteLine("Key exchange already completed.");
                 return;
             }
 
-            var topic = $"recipient/{recipientId}";
-            var payload = Encoding.UTF8.GetBytes($"KeyExchange:{_userId}:{Convert.ToBase64String(_encryptor.PublicKey)}");
-            var mqttMessage = new MqttApplicationMessageBuilder()
-                .WithTopic(topic)
-                .WithPayload(payload)
-                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
-                .WithRetainFlag(false)
-                .Build();
+            var request = new KeyExchangeRequest
+            {
+                UserId = _userId,
+                RecipientId = recipientId
+            };
 
-            await _mqttClient.PublishAsync(mqttMessage, CancellationToken.None);
+            var response = await _client.ProposeKeyExchangeAsync(request);
+            Console.WriteLine(response.Status);
+
+            if (response.Status == "Key exchange proposed")
+            {
+                keyExchangeCompleted = true;
+            }
         }
 
-        private async Task RespondToKeyExchange(string recipientId)
+        public void GenerateSharedKey(byte[] otherPublicKey)
         {
-            var topic = $"recipient/{recipientId}";
-            var payload = Encoding.UTF8.GetBytes($"KeyExchange:{_userId}:{Convert.ToBase64String(_encryptor.PublicKey)}");
-            var mqttMessage = new MqttApplicationMessageBuilder()
-                .WithTopic(topic)
-                .WithPayload(payload)
-                .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
-                .WithRetainFlag(false)
-                .Build();
+            encryptor.GenerateSharedKey(otherPublicKey);
+        }
 
-            await _mqttClient.PublishAsync(mqttMessage, CancellationToken.None);
+        public void GenerateNewKeyPair()
+        {
+            encryptor.GenerateNewKeyPair();
         }
     }
 }
