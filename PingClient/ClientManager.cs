@@ -1,20 +1,39 @@
+using System;
+using System.Threading.Tasks;
+
 namespace PingClient
 {
     public static class ClientManager
     {
         public static async Task TerminalRun()
         {
-            Console.Write("Enter your user ID: ");
-            var userId = Console.ReadLine();
-            if (string.IsNullOrEmpty(userId))
+            var grpcClient = new Client();
+
+            Console.Write("Enter your username: ");
+            var username = Console.ReadLine();
+            if (string.IsNullOrEmpty(username))
             {
                 Console.Write("Id was not provided");
-                System.Environment.Exit(1);
+                Environment.Exit(1);
             }
 
-            var mqttClient = new PingClient.Client(userId);
-            await mqttClient.Connect();
-            await mqttClient.ReceiveMessages();
+            Console.Write("Enter your password: ");
+            var password = Console.ReadLine();
+            if (string.IsNullOrEmpty(password))
+            {
+                Console.Write("Password was not provided");
+                Environment.Exit(1);
+            }
+
+            bool loginSuccess = await grpcClient.Login(username, password);
+            if (!loginSuccess)
+            {
+                Console.WriteLine("Login failed. Please check your username and password.");
+                return;
+            }
+
+            Console.WriteLine("Login successful!");
+            var receiveMessagesTask = grpcClient.ReceiveMessages();
 
             while (true)
             {
@@ -38,15 +57,13 @@ namespace PingClient
                         Console.Write("Enter the recipient ID: ");
                         var recipientId = Console.ReadLine() ?? string.Empty;
 
-                        if (!mqttClient.KeyExchangeCompleted)
+                        if (!grpcClient.KeyExchangeCompleted)
                         {
-                            await mqttClient.ProposeKeyExchange(recipientId);
-
+                            await grpcClient.ProposeKeyExchange(recipientId);
                             await Task.Delay(1000);
                         }
 
-                        await mqttClient.SendMessage(message, recipientId);
-
+                        await grpcClient.SendMessage(message, recipientId);
                         Console.WriteLine($"Message sent to user '{recipientId}': {message}");
                         break;
 
@@ -54,8 +71,7 @@ namespace PingClient
                         Console.Write("Enter the recipient ID: ");
                         recipientId = Console.ReadLine() ?? string.Empty;
 
-                        await mqttClient.ProposeKeyExchange(recipientId);
-
+                        await grpcClient.ProposeKeyExchange(recipientId);
                         Console.WriteLine($"Key exchange proposed to user '{recipientId}'");
                         break;
 
@@ -64,8 +80,6 @@ namespace PingClient
                         break;
                 }
             }
-
-            await mqttClient.Disconnect();
         }
     }
 }
