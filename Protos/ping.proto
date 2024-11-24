@@ -3,25 +3,46 @@ syntax = "proto3";
 option csharp_namespace = "PingServer";
 
 service PingService {
-  rpc SendMessage (MessageRequest) returns (MessageResponse);
-  rpc ProposeKeyExchange (KeyExchangeRequest) returns (KeyExchangeResponse);
+  rpc SendMessage (MessageRequest) returns (ExitCode);
+  rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
+  rpc ReceiveMessages (Empty) returns (stream ServerMessage);
+  rpc Login (LoginRequest) returns (ExitCode);
 }
 
 message MessageRequest {
-  string userId = 1;
+  string clientId = 1;
   string recipientId = 2;
   string message = 3;
 }
 
-message MessageResponse {
-  string status = 1;
-}
-
 message KeyExchangeRequest {
-  string userId = 1;
+  string clientId = 1;
   string recipientId = 2;
+  bytes publicKey = 3;
 }
 
-message KeyExchangeResponse {
-  string status = 1;
+
+message MessageResponse {
+  string type = 1;
+  string content = 2;
+  string sender = 3;
 }
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message ExitCode {
+  int32 status = 1;
+  string message = 2;
+}
+
+message ServerMessage {
+  oneof message {
+    MessageResponse messageResponse = 1;
+    ExitCode exitCode = 3;
+  }
+}
+
+message Empty {}

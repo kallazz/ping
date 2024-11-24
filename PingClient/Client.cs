@@ -1,4 +1,5 @@
 using Grpc.Net.Client;
+using Grpc.Core;
 using System;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,15 +41,15 @@ namespace PingClient
             };
 
             var response = await _client.LoginAsync(request);
-            if (response.Status == "Login successful")
+            if (response.Status == 0)
             {
-                clientId = response.ClientId;
+                clientId = response.Message;
                 Console.WriteLine($"User {username} logged in with User ID: {clientId}");
                 return true;
             }
             else
             {
-                Console.WriteLine($"Login failed for user {username}");
+                Console.WriteLine(response.Message);
                 return false;
             }
         }
@@ -65,7 +66,7 @@ namespace PingClient
             {
                 throw new InvalidOperationException("Shared key has not been established.");
             }
-
+        
             var encryptedMessage = encryptor.Encrypt(message);
             var request = new MessageRequest
             {
@@ -73,9 +74,17 @@ namespace PingClient
                 RecipientId = recipientId,
                 Message = Convert.ToBase64String(encryptedMessage)
             };
-
+        
             var response = await _client.SendMessageAsync(request);
-            Console.WriteLine(response.Status);
+            if(response.Status == 0)
+            {
+                Console.WriteLine(response.Message);
+            }
+            else
+            {
+                Console.WriteLine(response.Message);
+                // TODO: Handle message sending failure
+            }
         }
 
         public async Task ProposeKeyExchange(string recipientId)
@@ -85,30 +94,75 @@ namespace PingClient
                 Console.WriteLine("Key exchange already completed.");
                 return;
             }
-
+        
+            if (string.IsNullOrEmpty(clientId))
+            {
+                throw new InvalidOperationException("User is not logged in.");
+            }
+        
+            encryptor.GenerateNewKeyPair();
+            keyExchangeCompleted = false;
+        
             var request = new KeyExchangeRequest
             {
                 ClientId = clientId,
-                RecipientId = recipientId
+                RecipientId = recipientId,
+                PublicKey = Google.Protobuf.ByteString.CopyFrom(encryptor.PublicKey)
             };
-
+        
             var response = await _client.ProposeKeyExchangeAsync(request);
-            Console.WriteLine(response.Status);
-
-            if (response.Status == "Key exchange proposed")
+            
+            if(response.Status == 0)
             {
-                keyExchangeCompleted = true;
+                Console.WriteLine(response.Message);
+                // wait for the recipient to respond
+                await Task.Delay(100);
+                
+
+                if(keyExchangeCompleted)
+                {
+                    Console.WriteLine("Key exchange completed successfully.");
+                }
+                else
+                {
+                    Console.WriteLine("Key exchange failed.");
+                    // TODO: Handle key exchange failure
+                }
             }
+            else
+            {
+                Console.WriteLine(response.Message);
+                // TODO: Handle key exchange failure
+            }
+
         }
 
-        public void GenerateSharedKey(byte[] otherPublicKey)
+        public async Task ReceiveMessages()
         {
-            encryptor.GenerateSharedKey(otherPublicKey);
-        }
-
-        public void GenerateNewKeyPair()
-        {
-            encryptor.GenerateNewKeyPair();
+            using var call = _client.ReceiveMessages(new Empty());
+        
+            try
+            {
+                while (await call.ResponseStream.MoveNext(default))
+                {
+                    var response = call.ResponseStream.Current;
+                    Console.WriteLine($"Received message from {response.MessageResponse.Sender}: {response.MessageResponse.Content}");
+                    if (response.MessageResponse.Type == "KeyExchange")
+                    {
+                        encryptor.GenerateSharedKey(Convert.FromBase64String(response.MessageResponse.Content));
+                        keyExchangeCompleted = true;
+                    }
+                    else
+                    {
+                        var decryptedMessage = encryptor.Decrypt(Convert.FromBase64String(response.MessageResponse.Content));
+                        Console.WriteLine($"Decrypted message: {decryptedMessage}");
+                    }
+                }
+            }
+            catch (RpcException ex)
+            {
+                Console.WriteLine($"An error occurred while receiving messages: {ex.Status.Detail}");
+            }
         }
     }
 }
