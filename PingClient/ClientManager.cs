@@ -33,6 +33,7 @@ namespace PingClient
             }
 
             Console.WriteLine("Login successful!");
+            var receiveMessagesTask = grpcClient.ReceiveMessages();
 
             while (true)
             {

@@ -19,6 +19,7 @@ message KeyExchangeRequest {
   string clientId = 1;
   string recipientId = 2;
   bytes publicKey = 3;
+  bool init = 4;
 }
 
 
@@ -45,4 +46,6 @@ message ServerMessage {
   }
 }
 
-message Empty {}
+message Empty {
+  string clientId = 1;
+}

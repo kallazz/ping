@@ -48,32 +48,30 @@ namespace PingServer
         public override Task<ExitCode> ProposeKeyExchange(KeyExchangeRequest request, ServerCallContext context)
         {
             Console.WriteLine($"Key exchange proposed from {request.ClientId} to {request.RecipientId}");
-            SendKeyExchangeToRecipient(request.ClientId, request.RecipientId, request.PublicKey.ToByteArray());
+            SendKeyExchangeToRecipient(request.ClientId, request.RecipientId, request.PublicKey.ToByteArray(), request.Init);
             return Task.FromResult(new ExitCode { Status = 0, Message = "Key exchange proposed" });
         }
 
         public override async Task ReceiveMessages(Empty request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
         {
-            var clientId = context.GetHttpContext().Connection.Id;
+            var clientId = request.ClientId;
         
-            if (Server.clientConnections.TryGetValue(clientId, out var connection))
+            Console.WriteLine($"Client {clientId} connected");
+            Server.clientConnections[clientId] = responseStream;
+        
+            var messageQueue = Server.messageQueues.GetOrAdd(clientId, new ConcurrentQueue<ServerMessage>());
+        
+            while (!context.CancellationToken.IsCancellationRequested)
             {
-                var messageQueue = Server.messageQueues.GetOrAdd(clientId, new ConcurrentQueue<ServerMessage>());
-        
-                while (!context.CancellationToken.IsCancellationRequested)
+                while (messageQueue.TryDequeue(out var message))
                 {
-                    while (messageQueue.TryDequeue(out var message))
-                    {
-                        await responseStream.WriteAsync(message);
-                    }
-        
-                    await Task.Delay(100);
+                    await responseStream.WriteAsync(message);
                 }
+        
+                await Task.Delay(100);
             }
-            else
-            {
-                Console.WriteLine($"Client {clientId} not connected.");
-            }
+        
+            Server.clientConnections.TryRemove(clientId, out _);
         }
     
         public override Task<ExitCode> Login(LoginRequest request, ServerCallContext context)
@@ -139,18 +137,20 @@ namespace PingServer
             }
         }
         
-        private ExitCode SendKeyExchangeToRecipient(string clientId, string recipientId, byte[] publicKey)
+        private ExitCode SendKeyExchangeToRecipient(string clientId, string recipient, byte[] publicKey, bool init)
         {
-            Console.WriteLine($"Sending key exchange to {recipientId} from {clientId}");
+            Console.WriteLine($"Sending key exchange to {recipient} from {clientId}");
+            var recipientId = Server.GetClientIds()[recipient];
+
             if (Server.clientConnections.TryGetValue(recipientId, out var connection))
             {
                 var message = new ServerMessage
                 {
                     MessageResponse = new MessageResponse
                     {
-                        Type = "KeyExchange",
+                        Type = init ? "KeyExchangeInit" : "KeyExchangeResponse",
                         Content = Convert.ToBase64String(publicKey),
-                        Sender = clientId
+                        Sender = GetKeyFromValue(Server.GetClientIds(), clientId)
                     }
                 };
         
@@ -164,6 +164,18 @@ namespace PingServer
                 Console.WriteLine($"Recipient {recipientId} not connected.");
                 return new ExitCode { Status = 1, Message = "Recipient not connected" };
             }
+        }
+
+        private string GetKeyFromValue(ConcurrentDictionary<string, string> dictionary, string value)
+        {
+            foreach (var kvp in dictionary)
+            {
+                if (kvp.Value == value)
+                {
+                    return kvp.Key;
+                }
+            }
+            throw new KeyNotFoundException("The given value was not present in the dictionary.");
         }
     }
 
