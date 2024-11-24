@@ -1,8 +1,5 @@
 using Grpc.Net.Client;
 using Grpc.Core;
-using System;
-using System.Text;
-using System.Threading.Tasks;
 using PingServer;
 
 namespace PingClient
@@ -22,7 +19,7 @@ namespace PingClient
 
             var handler = new HttpClientHandler();
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-            
+
             var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = handler });
             _client = new PingService.PingServiceClient(channel);
 
@@ -66,7 +63,7 @@ namespace PingClient
             {
                 throw new InvalidOperationException("Shared key has not been established.");
             }
-        
+
             var encryptedMessage = encryptor.Encrypt(message);
             var request = new MessageRequest
             {
@@ -74,9 +71,9 @@ namespace PingClient
                 RecipientId = recipientId,
                 Message = Convert.ToBase64String(encryptedMessage)
             };
-        
+
             var response = await _client.SendMessageAsync(request);
-            if(response.Status == 0)
+            if (response.Status == 0)
             {
                 Console.WriteLine(response.Message);
             }
@@ -94,15 +91,15 @@ namespace PingClient
                 Console.WriteLine("Key exchange already completed.");
                 return;
             }
-        
+
             if (string.IsNullOrEmpty(clientId))
             {
                 throw new InvalidOperationException("User is not logged in.");
             }
-        
+
             encryptor.GenerateNewKeyPair();
             keyExchangeCompleted = false;
-        
+
             var request = new KeyExchangeRequest
             {
                 ClientId = clientId,
@@ -110,17 +107,17 @@ namespace PingClient
                 PublicKey = Google.Protobuf.ByteString.CopyFrom(encryptor.PublicKey),
                 Init = true
             };
-        
+
             var response = await _client.ProposeKeyExchangeAsync(request);
-            
-            if(response.Status == 0)
+
+            if (response.Status == 0)
             {
                 Console.WriteLine(response.Message);
                 // wait for the recipient to respond
                 await Task.Delay(100);
-                
 
-                if(keyExchangeCompleted)
+
+                if (keyExchangeCompleted)
                 {
                     Console.WriteLine("Key exchange completed successfully.");
                 }
@@ -142,7 +139,7 @@ namespace PingClient
         {
             Console.WriteLine("Listening for messages...");
             using var call = _client.ReceiveMessages(new Empty { ClientId = clientId });
-            
+
             try
             {
                 while (await call.ResponseStream.MoveNext(default))
@@ -163,7 +160,7 @@ namespace PingClient
                             Init = false
                         });
                     }
-                    else if(response.MessageResponse.Type == "KeyExchangeResponse")
+                    else if (response.MessageResponse.Type == "KeyExchangeResponse")
                     {
                         Console.WriteLine("Key exchange response received.");
                         encryptor.GenerateSharedKey(Convert.FromBase64String(response.MessageResponse.Content));
