@@ -40,7 +40,7 @@ namespace PingServer
     {
         public override Task<ExitCode> SendMessage(MessageRequest request, ServerCallContext context)
         {
-            Console.WriteLine($"Received message from {request.ClientId} to {request.RecipientId}: {request.Message}");
+            Console.WriteLine($"Sent message from {request.ClientId} to {request.RecipientId}: {request.Message}");
             SendMessageToRecipient(request.ClientId, request.RecipientId, request.Message);
             return Task.FromResult(new ExitCode { Status = 0, Message = "Message sent" });
         }
@@ -114,9 +114,10 @@ namespace PingServer
             }
         }
     
-        private ExitCode SendMessageToRecipient(string clientId, string recipientId, string message)
+        private ExitCode SendMessageToRecipient(string clientId, string recipient, string message)
         {
-            Console.WriteLine($"Sending message to {recipientId} from {clientId}: {message}");
+            Console.WriteLine($"Sending message to {recipient   } from {clientId}: {message}");
+            var recipientId = Server.GetClientIds()[recipient];
         
             if (Server.clientConnections.TryGetValue(recipientId, out var connection))
             {
