@@ -22,7 +22,8 @@ namespace PingServer
         public static IHostBuilder CreateHostBuilder()
         {
             DotNetEnv.Env.Load();
-            var port = Environment.GetEnvironmentVariable("PORT");
+            var port = Environment.GetEnvironmentVariable("PORT")
+                       ?? throw new InvalidOperationException("PORT is not set in the environment variables.");
 
             return Host.CreateDefaultBuilder()
                 .ConfigureWebHostDefaults(webBuilder =>
