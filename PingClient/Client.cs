@@ -20,7 +20,11 @@ namespace PingClient
             var handler = new HttpClientHandler();
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
 
-            var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = handler });
+            DotNetEnv.Env.Load();
+            var host = Environment.GetEnvironmentVariable("HOST");
+            var port = Environment.GetEnvironmentVariable("PORT");
+
+            var channel = GrpcChannel.ForAddress($"https://{host}:{port}", new GrpcChannelOptions { HttpHandler = handler });
             _client = new PingService.PingServiceClient(channel);
 
         }

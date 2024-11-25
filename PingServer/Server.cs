@@ -19,13 +19,18 @@ namespace PingServer
             await host.RunAsync();
         }
 
-        public static IHostBuilder CreateHostBuilder() =>
-            Host.CreateDefaultBuilder()
+        public static IHostBuilder CreateHostBuilder()
+        {
+            DotNetEnv.Env.Load();
+            var port = Environment.GetEnvironmentVariable("PORT");
+
+            return Host.CreateDefaultBuilder()
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
-                    webBuilder.UseUrls("http://localhost:5000", "https://localhost:5001");
+                    webBuilder.UseUrls($"https://*:{port}");
                 });
+        }
 
         public static ConcurrentDictionary<string, string> GetClientIds()
         {
