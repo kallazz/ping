@@ -1,21 +1,28 @@
-using System.Data.SqlClient;
+using Npgsql;
 
 namespace PingClient
 {
     public class DatabaseService : IDatabaseService
     {
-        private const string ConnectionString = "";
+        private readonly string _connectionString;
 
-        public async Task<bool> InsertUserIntoDatabase(string email, string username, string hashedPassword)
+        public DatabaseService()
+        {
+            DotNetEnv.Env.Load();
+            _connectionString = Environment.GetEnvironmentVariable("DATABASE_CONNECTION_STRING")
+                                ?? throw new InvalidOperationException("DATABASE_CONNECTION_STRING is not set in the environment variables.");
+        }
+
+        public async Task<bool> InsertUserIntoDatabase(string username, string email, string hashedPassword)
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(ConnectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
 
                     string query = "INSERT INTO users (username, email, password) VALUES (@Username, @Email, @Password)";
-                    using (SqlCommand command = new SqlCommand(query, connection))
+                    using (var command = new NpgsqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@Username", username);
                         command.Parameters.AddWithValue("@Email", email);
@@ -47,17 +54,16 @@ namespace PingClient
         {
             try
             {
-                using (SqlConnection connection = new SqlConnection(ConnectionString))
+                using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
 
                     string query = $"SELECT password FROM users WHERE {fieldName} = @Value";
-                    using (SqlCommand command = new SqlCommand(query, connection))
+                    using (var command = new NpgsqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@Value", value);
 
                         object? result = await command.ExecuteScalarAsync();
-
                         return result?.ToString();
                     }
                 }

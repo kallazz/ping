@@ -21,8 +21,10 @@ namespace PingClient
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
 
             DotNetEnv.Env.Load();
-            var host = Environment.GetEnvironmentVariable("HOST");
-            var port = Environment.GetEnvironmentVariable("PORT");
+            var host = Environment.GetEnvironmentVariable("HOST")
+                       ?? throw new InvalidOperationException("HOST is not set in the environment variables.");
+            var port = Environment.GetEnvironmentVariable("PORT")
+                       ?? throw new InvalidOperationException("PORT is not set in the environment variables.");
 
             var channel = GrpcChannel.ForAddress($"https://{host}:{port}", new GrpcChannelOptions { HttpHandler = handler });
             _client = new PingService.PingServiceClient(channel);
@@ -31,6 +33,7 @@ namespace PingClient
 
         public bool KeyExchangeCompleted => keyExchangeCompleted;
 
+        // TODO: Rebuild as login is not handled here
         public async Task<bool> Login(string username, string password)
         {
             try
