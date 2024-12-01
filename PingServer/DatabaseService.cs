@@ -144,5 +144,29 @@ namespace PingServer
                 return Task.FromResult<string?>(null);
             }
         }
+
+        public Task<string?> GetUsernamesByUserId(string userId)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    string query = "SELECT username FROM users WHERE id = @UserId";
+                    using (var command = new NpgsqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@UserId", userId);
+
+                        object? result = command.ExecuteScalar();
+                        return Task.FromResult(result?.ToString());
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return Task.FromResult<string?>(null);
+            }
+        }
     }
 }

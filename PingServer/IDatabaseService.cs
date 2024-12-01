@@ -7,5 +7,6 @@ namespace PingServer
         Task<string?> GetPasswordForUserByEmail(string email);
 
         Task<string?> GetUserIdByUsername(string username);
+        Task<string?> GetUsernamesByUserId(string userId);
     }
 }
