@@ -7,21 +7,39 @@ service PingService {
   rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
   rpc Login (LoginRequest) returns (ExitCode);
+  rpc Register (RegisterRequest) returns (ExitCode);
+  rpc GetFriendsList (FriendListRequest) returns (stream ServerMessage);
+  rpc AddFriend (AddFriendRequest) returns (stream ServerMessage);
+}
+
+message AddFriendRequest {
+  string client = 1;
+  string friend = 2;
+}
+
+message FriendListRequest {
+  string client = 1;
 }
 
 message MessageRequest {
-  string clientId = 1;
-  string recipientId = 2;
+  string client = 1;
+  string recipient = 2;
   string message = 3;
 }
 
 message KeyExchangeRequest {
-  string clientId = 1;
-  string recipientId = 2;
+  string client = 1;
+  string recipient = 2;
   bytes publicKey = 3;
   bool init = 4;
 }
 
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password1 = 3;
+  string password2 = 4;
+}
 
 message MessageResponse {
   string type = 1;
@@ -47,5 +65,5 @@ message ServerMessage {
 }
 
 message Empty {
-  string clientId = 1;
+  string client = 1;
 }

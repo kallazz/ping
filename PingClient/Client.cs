@@ -7,7 +7,7 @@ namespace PingClient
     public class Client
     {
         private readonly PingService.PingServiceClient _client;
-        private string? clientId;
+        private string? clientUsername;
         private Encryptor encryptor;
         private bool keyExchangeCompleted;
         public byte[]? PublicKey => encryptor.PublicKey;
@@ -47,8 +47,8 @@ namespace PingClient
                 var response = await _client.LoginAsync(request);
                 if (response.Status == 0)
                 {
-                    clientId = response.Message;
-                    Console.WriteLine($"User {username} logged in with User ID: {clientId}");
+                    Console.WriteLine($"User {username} logged in");
+                    clientUsername = username;
                     return true;
                 }
                 else
@@ -64,7 +64,31 @@ namespace PingClient
             }
         }
 
-        public async Task SendMessage(string message, string recipientId)
+        public async Task<bool> Register(string username, string email, string password1, string password2)
+        {
+            var request = new RegisterRequest
+            {
+                Username = username,
+                Email = email,
+                Password1 = password1,
+                Password2 = password2
+            };
+
+            var response = await _client.RegisterAsync(request);
+            if (response.Status == 0)
+            {
+                Console.WriteLine($"User {username} registered");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine(response.Message);
+                return false;
+            }
+
+        }
+
+        public async Task SendMessage(string message, string recipient)
         {
             if (!keyExchangeCompleted)
             {
@@ -74,8 +98,8 @@ namespace PingClient
             var encryptedMessage = encryptor.Encrypt(message);
             var request = new MessageRequest
             {
-                ClientId = clientId,
-                RecipientId = recipientId,
+                Client = clientUsername,
+                Recipient = recipient,
                 Message = Convert.ToBase64String(encryptedMessage)
             };
 
@@ -91,7 +115,7 @@ namespace PingClient
             }
         }
 
-        public async Task ProposeKeyExchange(string recipientId)
+        public async Task ProposeKeyExchange(string recipient)
         {
             if (keyExchangeCompleted)
             {
@@ -99,18 +123,13 @@ namespace PingClient
                 return;
             }
 
-            if (string.IsNullOrEmpty(clientId))
-            {
-                throw new InvalidOperationException("User is not logged in.");
-            }
-
             encryptor.GenerateNewKeyPair();
             keyExchangeCompleted = false;
 
             var request = new KeyExchangeRequest
             {
-                ClientId = clientId,
-                RecipientId = recipientId,
+                Client = clientUsername,
+                Recipient = recipient,
                 PublicKey = Google.Protobuf.ByteString.CopyFrom(encryptor.PublicKey),
                 Init = true
             };
@@ -145,7 +164,7 @@ namespace PingClient
         public async Task ReceiveMessages()
         {
             Console.WriteLine("Listening for messages...");
-            using var call = _client.ReceiveMessages(new Empty { ClientId = clientId });
+            using var call = _client.ReceiveMessages(new Empty { Client = clientUsername });
 
             try
             {
@@ -161,8 +180,8 @@ namespace PingClient
                         keyExchangeCompleted = true;
                         await _client.ProposeKeyExchangeAsync(new KeyExchangeRequest
                         {
-                            ClientId = clientId,
-                            RecipientId = response.MessageResponse.Sender,
+                            Client = clientUsername,
+                            Recipient = response.MessageResponse.Sender,
                             PublicKey = Google.Protobuf.ByteString.CopyFrom(encryptor.PublicKey),
                             Init = false
                         });
@@ -183,6 +202,52 @@ namespace PingClient
             catch (RpcException ex)
             {
                 Console.WriteLine($"An error occurred while receiving messages: {ex.Status.Detail}");
+            }
+        }
+
+        public async Task<List<string>> GetFriendsList()
+        {
+            var friendsList = new List<string>();
+            using var call = _client.GetFriendsList(new FriendListRequest { Client = clientUsername });
+
+            try
+            {
+                while (await call.ResponseStream.MoveNext(default))
+                {
+                    var response = call.ResponseStream.Current;
+                    var friends = response.MessageResponse.Content.Split(';');
+                    friendsList.AddRange(friends);
+                }
+            }
+            catch (RpcException ex)
+            {
+                Console.WriteLine($"An error occurred while getting friends list: {ex.Status.Detail}");
+            }
+
+            return friendsList;
+        }
+
+        public async Task AddFriend(string friend)
+        {
+            var request = new AddFriendRequest
+            {
+                Client = clientUsername,
+                Friend = friend
+            };
+
+            using var call = _client.AddFriend(request);
+
+            try
+            {
+                while (await call.ResponseStream.MoveNext(default))
+                {
+                    var response = call.ResponseStream.Current;
+                    Console.WriteLine(response.MessageResponse.Content);
+                }
+            }
+            catch (RpcException ex)
+            {
+                Console.WriteLine($"An error occurred while adding friend: {ex.Status.Detail}");
             }
         }
     }

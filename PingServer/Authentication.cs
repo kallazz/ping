@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Net.Mail;
 
-namespace PingClient
+namespace PingServer
 {
     public enum ValidationError
     {

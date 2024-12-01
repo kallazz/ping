@@ -5,8 +5,6 @@ namespace PingClient
         public static async Task TerminalRun()
         {
             var grpcClient = new Client();
-            var dbService = new DatabaseService();
-            var authentication = new Authentication(dbService);
 
             Console.WriteLine("Choose an option:");
             Console.WriteLine("1. Login");
@@ -31,60 +29,101 @@ namespace PingClient
                     Environment.Exit(1);
                 }
 
-                var validationError = await authentication.LoginUser(username, password);
-                if (validationError != ValidationError.None)
+                var isLogged = await grpcClient.Login(username, password);
+
+                if (!isLogged)
                 {
-                    Console.WriteLine("Login failed. Please check your username and password.");
+                    Console.Write("Login failed.");
                     return;
                 }
-
-                await grpcClient.Login(username, password); // TODO: Change how this method works
-                Console.WriteLine("Login successful!");
+                else
+                {
+                    Console.Write("Login successful.");
+                }
 
                 var receiveMessagesTask = grpcClient.ReceiveMessages();
 
                 while (true)
                 {
+                    // list friends
+                    var friendList = await grpcClient.GetFriendsList();
+                    Console.WriteLine("Your friends:");
+                    foreach (var friend in friendList)
+                    {
+                        Console.WriteLine(friend);
+                    }
+                    Console.WriteLine();
                     Console.WriteLine("Choose an option:");
-                    Console.WriteLine("1. Send a message");
-                    Console.WriteLine("2. Propose key exchange");
+                    Console.WriteLine("1. Add friend");
+                    Console.WriteLine("2. Choose friend");
                     Console.WriteLine("Type 'exit' to quit");
                     choice = Console.ReadLine() ?? string.Empty;
 
                     if (choice.ToLower() == "exit")
                     {
-                        break;
+                        continue;
                     }
 
                     switch (choice)
                     {
                         case "1":
-                            Console.Write("Enter the message to send: ");
-                            var message = Console.ReadLine() ?? string.Empty;
+                            Console.WriteLine("Provide username");
+                            Console.WriteLine("Type 'exit' to quit");
+                            choice = Console.ReadLine() ?? string.Empty;
 
-                            Console.Write("Enter the recipient ID: ");
-                            var recipientId = Console.ReadLine() ?? string.Empty;
-
-                            if (!grpcClient.KeyExchangeCompleted)
+                            if (choice.ToLower() == "exit")
                             {
-                                await grpcClient.ProposeKeyExchange(recipientId);
-                                await Task.Delay(1000);
+                                continue;
                             }
 
-                            await grpcClient.SendMessage(message, recipientId);
-                            Console.WriteLine($"Message sent to user '{recipientId}': {message}");
-                            break;
+                            grpcClient.AddFriend(choice);
+                            Console.WriteLine($"Friend request sent to user '{choice}'");
 
+                            break;
                         case "2":
-                            Console.Write("Enter the recipient ID: ");
-                            recipientId = Console.ReadLine() ?? string.Empty;
+                            Console.WriteLine("Choose an option:");
+                            Console.WriteLine("1. Send a message");
+                            Console.WriteLine("2. Propose key exchange");
+                            Console.WriteLine("Type 'exit' to quit");
+                            choice = Console.ReadLine() ?? string.Empty;
 
-                            await grpcClient.ProposeKeyExchange(recipientId);
-                            Console.WriteLine($"Key exchange proposed to user '{recipientId}'");
-                            break;
+                            if (choice.ToLower() == "exit")
+                            {
+                                continue;
+                            }
 
-                        default:
-                            Console.WriteLine("Invalid option. Please choose 1 or 2.");
+                            switch (choice)
+                            {
+                                case "1":
+                                    Console.Write("Enter the message to send: ");
+                                    var message = Console.ReadLine() ?? string.Empty;
+
+                                    Console.Write("Enter the recipient ID: ");
+                                    var recipientId = Console.ReadLine() ?? string.Empty;
+
+                                    if (!grpcClient.KeyExchangeCompleted)
+                                    {
+                                        await grpcClient.ProposeKeyExchange(recipientId);
+                                        await Task.Delay(1000);
+                                    }
+
+                                    await grpcClient.SendMessage(message, recipientId);
+                                    Console.WriteLine($"Message sent to user '{recipientId}': {message}");
+                                    break;
+
+                                case "2":
+                                    Console.Write("Enter the recipient ID: ");
+                                    recipientId = Console.ReadLine() ?? string.Empty;
+
+                                    await grpcClient.ProposeKeyExchange(recipientId);
+                                    Console.WriteLine($"Key exchange proposed to user '{recipientId}'");
+                                    break;
+
+                                default:
+                                    Console.WriteLine("Invalid option. Please choose 1 or 2.");
+                                    break;
+                            }
+
                             break;
                     }
                 }
@@ -123,15 +162,17 @@ namespace PingClient
                     Environment.Exit(1);
                 }
 
-                var validationError = await authentication.RegisterUser(username, email, password1, password2);
+                var isRegistered = await grpcClient.Register(username, email, password1, password2);
 
-                if (validationError == ValidationError.None)
+                if (!isRegistered)
                 {
-                    Console.Write("Registration successful!");
+                    Console.Write("Registration failed.");
+                    return;
                 }
                 else
                 {
-                    Console.Write("Registration failed.");
+                    Console.Write("Registration successful.");
+                    return;
                 }
             }
             else
