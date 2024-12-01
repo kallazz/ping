@@ -7,6 +7,7 @@ service PingService {
   rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
   rpc Login (LoginRequest) returns (ExitCode);
+  rpc Register (RegisterRequest) returns (ExitCode);
 }
 
 message MessageRequest {
@@ -22,6 +23,12 @@ message KeyExchangeRequest {
   bool init = 4;
 }
 
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password1 = 3;
+  string password2 = 4;
+}
 
 message MessageResponse {
   string type = 1;

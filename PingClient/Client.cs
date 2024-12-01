@@ -64,6 +64,31 @@ namespace PingClient
             }
         }
 
+        public async Task<bool> Register(string username, string email, string password1, string password2)
+        {
+            var request = new RegisterRequest
+            {
+                Username = username,
+                Email = email,
+                Password1 = password1,
+                Password2 = password2
+            };
+
+            var response = await _client.RegisterAsync(request);
+            if (response.Status == 0)
+            {
+                clientId = response.Message;
+                Console.WriteLine($"User {username} registered with User ID: {clientId}");
+                return true;
+            }
+            else
+            {
+                Console.WriteLine(response.Message);
+                return false;
+            }
+
+        }
+
         public async Task SendMessage(string message, string recipientId)
         {
             if (!keyExchangeCompleted)

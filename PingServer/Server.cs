@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Grpc.Core;
 using System.Collections.Concurrent;
+using Microsoft.VisualBasic;
 
 namespace PingServer
 {
@@ -12,9 +13,14 @@ namespace PingServer
         public static ConcurrentDictionary<string, IServerStreamWriter<ServerMessage>> clientConnections = new ConcurrentDictionary<string, IServerStreamWriter<ServerMessage>>();
         public static ConcurrentDictionary<string, string> clientIds = new ConcurrentDictionary<string, string>();
         public static ConcurrentDictionary<string, ConcurrentQueue<ServerMessage>> messageQueues = new ConcurrentDictionary<string, ConcurrentQueue<ServerMessage>>();
+        private static IDatabaseService _databaseService;
+
+        private static Authentication authentication;
 
         public static async Task Run()
         {
+            _databaseService = new DatabaseService();
+            authentication = new Authentication(_databaseService);
             var host = CreateHostBuilder().Build();
             await host.RunAsync();
         }
@@ -36,6 +42,16 @@ namespace PingServer
         public static ConcurrentDictionary<string, string> GetClientIds()
         {
             return clientIds;
+        }
+
+        public static IDatabaseService getDatabaseService()
+        {
+            return _databaseService;
+        }
+
+        public static Authentication getAuthentication()
+        {
+            return authentication;
         }
     }
 
@@ -82,7 +98,7 @@ namespace PingServer
             var clientId = getClientId(request.Username);
 
             // TODO: if client does not exist, create registration handling
-            if (ValidateUser(request.Username, request.Password))
+            if (ValidateLoginAsync(request.Username, request.Password).Result)
             {
                 Console.WriteLine($"User {request.Username} logged in with User ID: {clientId}");
                 return Task.FromResult(new ExitCode { Status = 0, Message = clientId });
@@ -94,10 +110,46 @@ namespace PingServer
             }
         }
 
-        private bool ValidateUser(string username, string password)
+        public override Task<ExitCode> Register(RegisterRequest request, ServerCallContext context)
         {
-            // TODO: Implement user validation
-            return true;
+            var clientId = getClientId(request.Username);
+
+            if (ValidateRegisterAsync(request.Username, request.Email, request.Password1, request.Password2).Result)
+            {
+                Console.WriteLine($"User {request.Username} registered with User ID: {clientId}");
+                return Task.FromResult(new ExitCode { Status = 0, Message = clientId });
+            }
+            else
+            {
+                Console.WriteLine($"Registration failed for user {request.Username}");
+                return Task.FromResult(new ExitCode { Status = 1, Message = "Registration failed" });
+            }
+        }
+
+        private async Task<bool> ValidateRegisterAsync(string username, string email, string password1, string password2)
+        {
+            var authentication = Server.getAuthentication();
+            var validationError = await authentication.RegisterUser(username, email, password1, password2);
+
+            if (validationError == ValidationError.None)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> ValidateLoginAsync(string username, string password)
+        {
+            var authentication = Server.getAuthentication();
+            var validationError = await authentication.LoginUser(username, password);
+
+            if (validationError == ValidationError.None)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private string getClientId(string username)
