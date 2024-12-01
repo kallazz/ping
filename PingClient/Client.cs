@@ -165,7 +165,7 @@ namespace PingClient
         {
             Console.WriteLine("Listening for messages...");
             using var call = _client.ReceiveMessages(new Empty { Client = clientUsername });
-        
+
             try
             {
                 while (await call.ResponseStream.MoveNext(default))
@@ -209,7 +209,7 @@ namespace PingClient
         {
             var friendsList = new List<string>();
             using var call = _client.GetFriendsList(new FriendListRequest { Client = clientUsername });
-        
+
             try
             {
                 while (await call.ResponseStream.MoveNext(default))
@@ -223,26 +223,31 @@ namespace PingClient
             {
                 Console.WriteLine($"An error occurred while getting friends list: {ex.Status.Detail}");
             }
-        
+
             return friendsList;
         }
 
         public async Task AddFriend(string friend)
         {
-            var request = new FriendRequest
+            var request = new AddFriendRequest
             {
                 Client = clientUsername,
                 Friend = friend
             };
-
-            var response = await _client.AddFriendAsync(request);
-            if (response.Status == 0)
+        
+            using var call = _client.AddFriend(request);
+        
+            try
             {
-                Console.WriteLine(response.Message);
+                while (await call.ResponseStream.MoveNext(default))
+                {
+                    var response = call.ResponseStream.Current;
+                    Console.WriteLine(response.MessageResponse.Content);
+                }
             }
-            else
+            catch (RpcException ex)
             {
-                Console.WriteLine(response.Message);
+                Console.WriteLine($"An error occurred while adding friend: {ex.Status.Detail}");
             }
         }
     }

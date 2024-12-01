@@ -13,7 +13,8 @@ service PingService {
 }
 
 message AddFriendRequest {
-  string friendToAdd = 1;
+  string client = 1;
+  string friend = 2;
 }
 
 message FriendListRequest {

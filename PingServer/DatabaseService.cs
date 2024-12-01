@@ -210,5 +210,50 @@ namespace PingServer
             return friendsUsernames;
         }
 
+        public async Task<bool> AddFriend(string username, string friendUsername)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    string userIdQuery = "SELECT id FROM users WHERE username = @Username";
+                    int userId;
+
+                    using (var userIdCommand = new NpgsqlCommand(userIdQuery, connection))
+                    {
+                        userIdCommand.Parameters.AddWithValue("@Username", username);
+                        userId = (int)(await userIdCommand.ExecuteScalarAsync() ?? throw new Exception("User not found"));
+                    }
+
+                    string friendIdQuery = "SELECT id FROM users WHERE username = @FriendUsername";
+                    int friendId;
+
+                    using (var friendIdCommand = new NpgsqlCommand(friendIdQuery, connection))
+                    {
+                        friendIdCommand.Parameters.AddWithValue("@FriendUsername", friendUsername);
+                        friendId = (int)(await friendIdCommand.ExecuteScalarAsync() ?? throw new Exception("Friend not found"));
+                    }
+
+                    string query = "INSERT INTO friends (id, friend) VALUES (@UserId, @FriendId)";
+                    using (var command = new NpgsqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@UserId", userId);
+                        command.Parameters.AddWithValue("@FriendId", friendId);
+
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while adding friend: {ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
     }
 }

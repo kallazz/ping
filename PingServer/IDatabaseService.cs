@@ -9,5 +9,7 @@ namespace PingServer
         Task<string?> GetUserIdByUsername(string username);
         Task<string?> GetUsernamesByUserId(string userId);
         Task<List<string>> GetFriendsUsernamesListFromUsername(string username);
+
+        Task<bool> AddFriend(string username, string friendUsername);
     }
 }

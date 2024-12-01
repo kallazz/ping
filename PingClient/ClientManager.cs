@@ -76,7 +76,7 @@ namespace PingClient
                                 continue;
                             }
 
-                            await grpcClient.AddFriend(choice);
+                            grpcClient.AddFriend(choice);
                             Console.WriteLine($"Friend request sent to user '{choice}'");
 
                             break;

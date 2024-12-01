@@ -269,7 +269,7 @@ namespace PingServer
             bool success;
             try
             {
-                success = await _databaseService.AddFriend(request.UserId, request.FriendUsername);
+                success = await _databaseService.AddFriend(request.Client, request.Friend);
             }
             catch (Exception ex)
             {
