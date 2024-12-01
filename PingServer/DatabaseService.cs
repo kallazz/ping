@@ -17,6 +17,7 @@ namespace PingServer
         {
             try
             {
+                System.Console.WriteLine("Inserting user into database");
                 using (var connection = new NpgsqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
@@ -32,8 +33,10 @@ namespace PingServer
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                System.Console.WriteLine("An error occurred while inserting user into database");
+                System.Console.WriteLine(ex.Message);
                 return false;
             }
 
