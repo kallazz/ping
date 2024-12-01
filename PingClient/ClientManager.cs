@@ -46,7 +46,7 @@ namespace PingClient
                 while (true)
                 {
                     // list friends
-                    var friendList = grpcClient.GetFriendsList();
+                    var friendList = await grpcClient.GetFriendsList();
                     Console.WriteLine("Your friends:");
                     foreach (var friend in friendList)
                     {
