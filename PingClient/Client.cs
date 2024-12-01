@@ -234,9 +234,9 @@ namespace PingClient
                 Client = clientUsername,
                 Friend = friend
             };
-        
+
             using var call = _client.AddFriend(request);
-        
+
             try
             {
                 while (await call.ResponseStream.MoveNext(default))
