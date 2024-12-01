@@ -98,37 +98,37 @@ namespace PingServer
             {
                 return new ExitCode { Status = 1, Message = "Client ID cannot be null or empty" };
             }
-
+        
             var _databaseService = Server.getDatabaseService();
             string clientId;
             try
             {
-                clientId = await _databaseService.GetUsernamesByUserId(request.Client);
+                clientId = await _databaseService.GetUserIdByUsername(request.Client);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
                 return new ExitCode { Status = 1, Message = "Error getting username" };
             }
-
+        
             Console.WriteLine($"Client {clientId} connected");
             Server.clientConnections[clientId] = responseStream;
-
+        
             var messageQueue = Server.messageQueues.GetOrAdd(clientId, new ConcurrentQueue<ServerMessage>());
-
+        
             while (!context.CancellationToken.IsCancellationRequested)
             {
                 while (messageQueue.TryDequeue(out var message))
                 {
                     await responseStream.WriteAsync(message);
                 }
-
+        
                 await Task.Delay(100);
             }
-
+        
             Server.clientConnections.TryRemove(clientId, out _);
             Server.messageQueues.TryRemove(clientId, out _);
-
+        
             Console.WriteLine($"Client {clientId} disconnected");
             return new ExitCode { Status = 0, Message = "Client disconnected" };
         }

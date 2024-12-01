@@ -165,7 +165,7 @@ namespace PingClient
         {
             Console.WriteLine("Listening for messages...");
             using var call = _client.ReceiveMessages(new Empty { Client = clientUsername });
-
+        
             try
             {
                 while (await call.ResponseStream.MoveNext(default))
