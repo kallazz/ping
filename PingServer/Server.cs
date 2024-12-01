@@ -98,7 +98,7 @@ namespace PingServer
             {
                 return new ExitCode { Status = 1, Message = "Client ID cannot be null or empty" };
             }
-        
+
             var _databaseService = Server.getDatabaseService();
             string clientId;
             try
@@ -110,25 +110,25 @@ namespace PingServer
                 Console.WriteLine($"Error: {ex.Message}");
                 return new ExitCode { Status = 1, Message = "Error getting username" };
             }
-        
+
             Console.WriteLine($"Client {clientId} connected");
             Server.clientConnections[clientId] = responseStream;
-        
+
             var messageQueue = Server.messageQueues.GetOrAdd(clientId, new ConcurrentQueue<ServerMessage>());
-        
+
             while (!context.CancellationToken.IsCancellationRequested)
             {
                 while (messageQueue.TryDequeue(out var message))
                 {
                     await responseStream.WriteAsync(message);
                 }
-        
+
                 await Task.Delay(100);
             }
-        
+
             Server.clientConnections.TryRemove(clientId, out _);
             Server.messageQueues.TryRemove(clientId, out _);
-        
+
             Console.WriteLine($"Client {clientId} disconnected");
             return new ExitCode { Status = 0, Message = "Client disconnected" };
         }
@@ -258,9 +258,34 @@ namespace PingServer
                 await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Error getting friend list" } });
                 return;
             }
-        
+
             string friendsList = string.Join(";", friends);
             await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = friendsList } });
+        }
+
+        public override async Task AddFriend(AddFriendRequest request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
+        {
+            var _databaseService = Server.getDatabaseService();
+            bool success;
+            try
+            {
+                success = await _databaseService.AddFriend(request.UserId, request.FriendUsername);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Error adding friend" } });
+                return;
+            }
+
+            if (success)
+            {
+                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Friend added successfully" } });
+            }
+            else
+            {
+                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Failed to add friend" } });
+            }
         }
     }
 

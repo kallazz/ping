@@ -67,11 +67,18 @@ namespace PingClient
                     switch (choice)
                     {
                         case "1":
-                            Console.WriteLine("Choose an option:");
-                            Console.WriteLine("1. Show friend list");
-                            Console.WriteLine("2. Provide username");
+                            Console.WriteLine("Provide username");
                             Console.WriteLine("Type 'exit' to quit");
                             choice = Console.ReadLine() ?? string.Empty;
+
+                            if (choice.ToLower() == "exit")
+                            {
+                                continue;
+                            }
+
+                            await grpcClient.AddFriend(choice);
+                            Console.WriteLine($"Friend request sent to user '{choice}'");
+
                             break;
                         case "2":
                             Console.WriteLine("Choose an option:");
@@ -157,7 +164,7 @@ namespace PingClient
 
                 var isRegistered = await grpcClient.Register(username, email, password1, password2);
 
-                if(!isRegistered)
+                if (!isRegistered)
                 {
                     Console.Write("Registration failed.");
                     return;

@@ -9,6 +9,11 @@ service PingService {
   rpc Login (LoginRequest) returns (ExitCode);
   rpc Register (RegisterRequest) returns (ExitCode);
   rpc GetFriendsList (FriendListRequest) returns (stream ServerMessage);
+  rpc AddFriend (AddFriendRequest) returns (stream ServerMessage);
+}
+
+message AddFriendRequest {
+  string friendToAdd = 1;
 }
 
 message FriendListRequest {

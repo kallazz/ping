@@ -226,5 +226,24 @@ namespace PingClient
         
             return friendsList;
         }
+
+        public async Task AddFriend(string friend)
+        {
+            var request = new FriendRequest
+            {
+                Client = clientUsername,
+                Friend = friend
+            };
+
+            var response = await _client.AddFriendAsync(request);
+            if (response.Status == 0)
+            {
+                Console.WriteLine(response.Message);
+            }
+            else
+            {
+                Console.WriteLine(response.Message);
+            }
+        }
     }
 }
