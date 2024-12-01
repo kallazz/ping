@@ -54,5 +54,5 @@ message ServerMessage {
 }
 
 message Empty {
-  string clientId = 1;
+  string client = 1;
 }

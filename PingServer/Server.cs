@@ -95,7 +95,7 @@ namespace PingServer
             var _databaseService = Server.getDatabaseService();
             string clientId;
             try{
-                clientId = await _databaseService.GetUsernamesByUserId(request.ClientId);
+                clientId = await _databaseService.GetUsernamesByUserId(request.Client);
             }
             catch (Exception ex)
             {
