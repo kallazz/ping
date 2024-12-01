@@ -55,7 +55,8 @@ namespace PingServer
             var _databaseService = Server.getDatabaseService();
             string recipientID;
             string clientID;
-            try{
+            try
+            {
                 clientID = await _databaseService.GetUserIdByUsername(request.Client);
                 recipientID = await _databaseService.GetUserIdByUsername(request.Recipient);
             }
@@ -75,7 +76,8 @@ namespace PingServer
             var _databaseService = Server.getDatabaseService();
             string recipientID;
             string clientID;
-            try{
+            try
+            {
                 clientID = await _databaseService.GetUserIdByUsername(request.Client);
                 recipientID = await _databaseService.GetUserIdByUsername(request.Recipient);
             }
@@ -84,7 +86,7 @@ namespace PingServer
                 Console.WriteLine($"Error: {ex.Message}");
                 return new ExitCode { Status = 1, Message = "Error getting userID" };
             }
-            
+
             Console.WriteLine($"Key exchange proposed from {request.Client} to {request.Recipient}");
             SendKeyExchangeToRecipient(clientID, recipientID, request.PublicKey.ToByteArray(), request.Init);
             return new ExitCode { Status = 0, Message = "Key exchange proposed" };
@@ -92,9 +94,15 @@ namespace PingServer
 
         public override async Task<ExitCode> ReceiveMessages(Empty request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
         {
+            if (string.IsNullOrEmpty(request.Client))
+            {
+                return new ExitCode { Status = 1, Message = "Client ID cannot be null or empty" };
+            }
+
             var _databaseService = Server.getDatabaseService();
             string clientId;
-            try{
+            try
+            {
                 clientId = await _databaseService.GetUsernamesByUserId(request.Client);
             }
             catch (Exception ex)
@@ -129,7 +137,8 @@ namespace PingServer
         {
             var _databaseService = Server.getDatabaseService();
             string clientId;
-            try{
+            try
+            {
                 clientId = await _databaseService.GetUsernamesByUserId(request.Username);
             }
             catch (Exception ex)
