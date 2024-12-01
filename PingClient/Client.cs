@@ -204,5 +204,27 @@ namespace PingClient
                 Console.WriteLine($"An error occurred while receiving messages: {ex.Status.Detail}");
             }
         }
+
+        public async Task<List<string>> GetFriendsList()
+        {
+            var friendsList = new List<string>();
+            using var call = _client.GetFriendsList(new FriendListRequest { Client = clientUsername });
+        
+            try
+            {
+                while (await call.ResponseStream.MoveNext(default))
+                {
+                    var response = call.ResponseStream.Current;
+                    var friends = response.MessageResponse.Content.Split(';');
+                    friendsList.AddRange(friends);
+                }
+            }
+            catch (RpcException ex)
+            {
+                Console.WriteLine($"An error occurred while getting friends list: {ex.Status.Detail}");
+            }
+        
+            return friendsList;
+        }
     }
 }

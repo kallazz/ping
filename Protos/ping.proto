@@ -8,6 +8,11 @@ service PingService {
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
   rpc Login (LoginRequest) returns (ExitCode);
   rpc Register (RegisterRequest) returns (ExitCode);
+  rpc GetFriendsList (FriendListRequest) returns (stream ServerMessage);
+}
+
+message FriendListRequest {
+  string client = 1;
 }
 
 message MessageRequest {

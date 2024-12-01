@@ -46,6 +46,13 @@ namespace PingClient
                 while (true)
                 {
                     // list friends
+                    var friendList = grpcClient.GetFriendsList();
+                    Console.WriteLine("Your friends:");
+                    foreach (var friend in friendList)
+                    {
+                        Console.WriteLine(friend);
+                    }
+                    Console.WriteLine();
                     Console.WriteLine("Choose an option:");
                     Console.WriteLine("1. Add friend");
                     Console.WriteLine("2. Choose friend");

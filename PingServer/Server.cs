@@ -243,6 +243,25 @@ namespace PingServer
                 return new ExitCode { Status = 1, Message = "Recipient not connected" };
             }
         }
+
+        public override async Task GetFriendsList(FriendListRequest request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
+        {
+            var _databaseService = Server.getDatabaseService();
+            List<string> friends;
+            try
+            {
+                friends = await _databaseService.GetFriendsUsernamesListFromUsername(request.Client);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Error getting friend list" } });
+                return;
+            }
+        
+            string friendsList = string.Join(";", friends);
+            await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = friendsList } });
+        }
     }
 
     public class Startup
