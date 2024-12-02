@@ -4,21 +4,20 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Grpc.Core;
 using System.Collections.Concurrent;
-using Microsoft.VisualBasic;
 
 namespace PingServer
 {
     public static class Server
     {
-        private static IDatabaseService _databaseService;
+        private static IDatabaseService databaseService;
         private static Authentication authentication;
         public static ConcurrentDictionary<string, IServerStreamWriter<ServerMessage>> clientConnections = new ConcurrentDictionary<string, IServerStreamWriter<ServerMessage>>();
         public static ConcurrentDictionary<string, ConcurrentQueue<ServerMessage>> messageQueues = new ConcurrentDictionary<string, ConcurrentQueue<ServerMessage>>();
 
         public static async Task Run()
         {
-            _databaseService = new DatabaseService();
-            authentication = new Authentication(_databaseService);
+            databaseService = new DatabaseService();
+            authentication = new Authentication(databaseService);
             var host = CreateHostBuilder().Build();
             await host.RunAsync();
         }
@@ -39,7 +38,7 @@ namespace PingServer
 
         public static IDatabaseService getDatabaseService()
         {
-            return _databaseService;
+            return databaseService;
         }
 
         public static Authentication getAuthentication()
@@ -53,42 +52,33 @@ namespace PingServer
         public override async Task<ExitCode> SendMessage(MessageRequest request, ServerCallContext context)
         {
             var _databaseService = Server.getDatabaseService();
-            string recipientID;
-            string clientID;
-            try
+
+            var clientId = await _databaseService.GetUserIdByUsername(request.Client);
+            var recipientId = await _databaseService.GetUserIdByUsername(request.Recipient);
+
+            if (clientId is null || recipientId is null)
             {
-                clientID = await _databaseService.GetUserIdByUsername(request.Client);
-                recipientID = await _databaseService.GetUserIdByUsername(request.Recipient);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                return new ExitCode { Status = 1, Message = "Error getting userID" };
+                return new ExitCode { Status = 1, Message = "Database error" };
             }
 
-            Console.WriteLine($"Sent message from {request.Client} to {request.Recipient}: {request.Message}");
-            SendMessageToRecipient(clientID, recipientID, request.Message);
+            SendMessageToRecipient(clientId, recipientId, request.Message);
             return new ExitCode { Status = 0, Message = "Message sent" };
         }
 
         public override async Task<ExitCode> ProposeKeyExchange(KeyExchangeRequest request, ServerCallContext context)
         {
             var _databaseService = Server.getDatabaseService();
-            string recipientID;
-            string clientID;
-            try
+
+            var clientId = await _databaseService.GetUserIdByUsername(request.Client);
+            var recipientId = await _databaseService.GetUserIdByUsername(request.Recipient);
+
+            if (clientId is null || recipientId is null)
             {
-                clientID = await _databaseService.GetUserIdByUsername(request.Client);
-                recipientID = await _databaseService.GetUserIdByUsername(request.Recipient);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                return new ExitCode { Status = 1, Message = "Error getting userID" };
+                return new ExitCode { Status = 1, Message = "Database error" };
             }
 
             Console.WriteLine($"Key exchange proposed from {request.Client} to {request.Recipient}");
-            SendKeyExchangeToRecipient(clientID, recipientID, request.PublicKey.ToByteArray(), request.Init);
+            SendKeyExchangeToRecipient(clientId, recipientId, request.PublicKey.ToByteArray(), request.Init);
             return new ExitCode { Status = 0, Message = "Key exchange proposed" };
         }
 
@@ -100,14 +90,10 @@ namespace PingServer
             }
 
             var _databaseService = Server.getDatabaseService();
-            string clientId;
-            try
+
+            var clientId = await _databaseService.GetUserIdByUsername(request.Client);
+            if (clientId is null)
             {
-                clientId = await _databaseService.GetUserIdByUsername(request.Client);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
                 return new ExitCode { Status = 1, Message = "Error getting username" };
             }
 
@@ -120,6 +106,19 @@ namespace PingServer
             {
                 while (messageQueue.TryDequeue(out var message))
                 {
+                    var senderId = Int32.Parse(message.MessageResponse.Sender);
+
+                    var senderUsername = await _databaseService.GetUsernameByUserId(senderId);
+
+                    if (senderUsername is not null)
+                    {
+                        message.MessageResponse.Sender = senderUsername;
+                    }
+                    else
+                    {
+                        message.MessageResponse.Sender = "Unknown";
+                    }
+
                     await responseStream.WriteAsync(message);
                 }
 
@@ -135,18 +134,6 @@ namespace PingServer
 
         public override async Task<ExitCode> Login(LoginRequest request, ServerCallContext context)
         {
-            var _databaseService = Server.getDatabaseService();
-            string clientId;
-            try
-            {
-                clientId = await _databaseService.GetUsernamesByUserId(request.Username);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                return new ExitCode { Status = 1, Message = "Error getting username" };
-            }
-
             // TODO: if client does not exist, create registration handling
             var validationMsg = ValidateLoginAsync(request.Username, request.Password).Result;
             if (validationMsg == ValidationError.None)
@@ -244,48 +231,52 @@ namespace PingServer
             }
         }
 
-        public override async Task GetFriendsList(FriendListRequest request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
+        public override async Task<ServerMessage> GetFriends(FriendListRequest request, ServerCallContext context)
         {
             var _databaseService = Server.getDatabaseService();
-            List<string> friends;
-            try
-            {
-                friends = await _databaseService.GetFriendsUsernamesListFromUsername(request.Client);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Error getting friend list" } });
-                return;
-            }
 
-            string friendsList = string.Join(";", friends);
-            await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = friendsList } });
+            List<string>? friendUsernames = await _databaseService.GetFriendUsernameListFromUsername(request.Client);
+            if (friendUsernames is null)
+            {
+                return new ServerMessage { ExitCode = new ExitCode { Status = 1, Message = "Database error" } };
+            }
+            Console.WriteLine($"The friends I got are {friendUsernames}");
+
+            string friendsList = string.Join(";", friendUsernames);
+            return new ServerMessage { MessageResponse = new MessageResponse { Content = friendsList }, ExitCode = new ExitCode { Status = 0 } };
         }
 
-        public override async Task AddFriend(AddFriendRequest request, IServerStreamWriter<ServerMessage> responseStream, ServerCallContext context)
+        public override async Task<ExitCode> AddFriend(AddFriendRequest request, ServerCallContext context)
         {
-            var _databaseService = Server.getDatabaseService();
-            bool success;
-            try
+            var databaseService = Server.getDatabaseService();
+
+            string? userIdString = await databaseService.GetUserIdByUsername(request.Client);
+            string? friendIdString = await databaseService.GetUserIdByUsername(request.Friend);
+
+            if (userIdString is null)
             {
-                success = await _databaseService.AddFriend(request.Client, request.Friend);
+                return new ExitCode { Status = 1, Message = "Client user doesn't exist" };
             }
-            catch (Exception ex)
+            if (friendIdString is null)
             {
-                Console.WriteLine($"Error: {ex.Message}");
-                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Error adding friend" } });
-                return;
+                return new ExitCode { Status = 1, Message = "Friend doesn't exist" };
             }
 
-            if (success)
+            int userId = Int32.Parse(userIdString);
+            int friendId = Int32.Parse(friendIdString);
+
+            if (await databaseService.IsUsersFriend(userId, friendId))
             {
-                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Friend added successfully" } });
+                return new ExitCode { Status = 1, Message = $"{request.Friend} is already a friend" };
             }
-            else
+
+            bool wasFriendInserted = await databaseService.InsertFriendIntoFriends(userId, friendId);
+
+            if (wasFriendInserted)
             {
-                await responseStream.WriteAsync(new ServerMessage { MessageResponse = new MessageResponse { Content = "Failed to add friend" } });
+                return new ExitCode { Status = 0, Message = "Friend added successfully" };
             }
+            return new ExitCode { Status = 1, Message = "Database error" };
         }
     }
 
