@@ -8,8 +8,8 @@ service PingService {
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
   rpc Login (LoginRequest) returns (ExitCode);
   rpc Register (RegisterRequest) returns (ExitCode);
-  rpc GetFriendsList (FriendListRequest) returns (stream ServerMessage);
-  rpc AddFriend (AddFriendRequest) returns (stream ServerMessage);
+  rpc GetFriends (FriendListRequest) returns (ServerMessage);
+  rpc AddFriend (AddFriendRequest) returns (ExitCode);
 }
 
 message AddFriendRequest {
@@ -58,10 +58,8 @@ message ExitCode {
 }
 
 message ServerMessage {
-  oneof message {
-    MessageResponse messageResponse = 1;
-    ExitCode exitCode = 3;
-  }
+  MessageResponse messageResponse = 1;
+  ExitCode exitCode = 2;
 }
 
 message Empty {

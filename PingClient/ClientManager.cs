@@ -46,11 +46,16 @@ namespace PingClient
                 while (true)
                 {
                     // list friends
+                    var friendCounter = 1;
                     var friendList = await grpcClient.GetFriendsList();
                     Console.WriteLine("Your friends:");
-                    foreach (var friend in friendList)
+                    if (friendList is not null)
                     {
-                        Console.WriteLine(friend);
+                        foreach (var friend in friendList)
+                        {
+                            Console.WriteLine($"{friendCounter}. {friend}");
+                            friendCounter += 1;
+                        }
                     }
                     Console.WriteLine();
                     Console.WriteLine("Choose an option:");
@@ -61,14 +66,13 @@ namespace PingClient
 
                     if (choice.ToLower() == "exit")
                     {
-                        continue;
+                        break;
                     }
 
                     switch (choice)
                     {
                         case "1":
-                            Console.WriteLine("Provide username");
-                            Console.WriteLine("Type 'exit' to quit");
+                            Console.WriteLine("Provide username(or type exit):");
                             choice = Console.ReadLine() ?? string.Empty;
 
                             if (choice.ToLower() == "exit")
@@ -76,12 +80,39 @@ namespace PingClient
                                 continue;
                             }
 
-                            await grpcClient.AddFriend(choice);
-                            Console.WriteLine($"Friend request sent to user '{choice}'");
+                            if (await grpcClient.AddFriend(choice))
+                            {
+                                Console.WriteLine($"Successfully added friend {choice}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Couldn't add friend {choice}");
+                            }
 
                             break;
                         case "2":
-                            Console.WriteLine("Choose an option:");
+                            if (friendList is null || friendList.Count == 0)
+                            {
+                                Console.WriteLine("You don't have any friends. Please add them first");
+                                continue;
+                            }
+
+                            Console.WriteLine("Provide your friend's number(or type exit):");
+                            choice = Console.ReadLine() ?? string.Empty;
+
+                            if (!int.TryParse(choice, out int friendNumber))
+                            {
+                                Console.WriteLine($"{choice} is not a valid number.");
+                                continue;
+                            }
+
+                            if (friendNumber < 1 || friendNumber > friendList.Count)
+                            {
+                                Console.WriteLine($"Number should be in range <1, {friendList.Count}>");
+                                continue;
+                            }
+
+                            Console.WriteLine("\nChoose an option:");
                             Console.WriteLine("1. Send a message");
                             Console.WriteLine("2. Propose key exchange");
                             Console.WriteLine("Type 'exit' to quit");
@@ -98,25 +129,18 @@ namespace PingClient
                                     Console.Write("Enter the message to send: ");
                                     var message = Console.ReadLine() ?? string.Empty;
 
-                                    Console.Write("Enter the recipient ID: ");
-                                    var recipientId = Console.ReadLine() ?? string.Empty;
+                                    // TODO: handle key exchange
+                                    // if (!grpcClient.KeyExchangeCompleted)
+                                    // {
 
-                                    if (!grpcClient.KeyExchangeCompleted)
-                                    {
-                                        await grpcClient.ProposeKeyExchange(recipientId);
-                                        await Task.Delay(1000);
-                                    }
+                                    // }
 
-                                    await grpcClient.SendMessage(message, recipientId);
-                                    Console.WriteLine($"Message sent to user '{recipientId}': {message}");
+                                    await grpcClient.SendMessage(message, friendList[friendNumber - 1]);
+                                    Console.WriteLine($"Message sent to user '{friendList[friendNumber - 1]}': {message}");
                                     break;
-
                                 case "2":
-                                    Console.Write("Enter the recipient ID: ");
-                                    recipientId = Console.ReadLine() ?? string.Empty;
-
-                                    await grpcClient.ProposeKeyExchange(recipientId);
-                                    Console.WriteLine($"Key exchange proposed to user '{recipientId}'");
+                                    await grpcClient.ProposeKeyExchange(friendList[friendNumber - 1]);
+                                    Console.WriteLine($"Key exchange proposed to user '{friendList[friendNumber - 1]}'");
                                     break;
 
                                 default:

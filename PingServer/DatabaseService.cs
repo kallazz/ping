@@ -77,53 +77,6 @@ namespace PingServer
             }
         }
 
-        public async Task<List<string>> GetFriendsList(string username)
-        {
-            var friendsList = new List<string>();
-
-            try
-            {
-                using (var connection = new NpgsqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-
-                    string userIdQuery = "SELECT id FROM users WHERE username = @Username";
-                    int userId;
-
-                    using (var userIdCommand = new NpgsqlCommand(userIdQuery, connection))
-                    {
-                        userIdCommand.Parameters.AddWithValue("@Username", username);
-                        userId = (int)(await userIdCommand.ExecuteScalarAsync() ?? throw new Exception("User not found"));
-                    }
-
-                    string friendsQuery = @"
-                        SELECT u.username
-                        FROM friends f
-                        JOIN users u ON u.id = f.friend
-                        WHERE f.id = @UserId";
-
-                    using (var friendsCommand = new NpgsqlCommand(friendsQuery, connection))
-                    {
-                        friendsCommand.Parameters.AddWithValue("@UserId", userId);
-
-                        using (var reader = await friendsCommand.ExecuteReaderAsync())
-                        {
-                            while (await reader.ReadAsync())
-                            {
-                                friendsList.Add(reader.GetString(0));
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred while retrieving friends list: {ex.Message}");
-            }
-
-            return friendsList;
-        }
-
         public Task<string?> GetUserIdByUsername(string username)
         {
             try
@@ -148,7 +101,7 @@ namespace PingServer
             }
         }
 
-        public Task<string?> GetUsernamesByUserId(string userId)
+        public Task<string?> GetUsernameByUserId(int userId)
         {
             try
             {
@@ -172,9 +125,9 @@ namespace PingServer
             }
         }
 
-        public async Task<List<string>> GetFriendsUsernamesListFromUsername(string username)
+        public async Task<List<string>?> GetFriendUsernameListFromUsername(string username)
         {
-            var friendsUsernames = new List<string>();
+            var friendUsernames = new List<string>();
 
             try
             {
@@ -183,10 +136,11 @@ namespace PingServer
                     await connection.OpenAsync();
 
                     string query = @"
-                SELECT u.username
-                FROM users u
-                JOIN friends f ON u.id = f.friend
-                WHERE f.id = (SELECT id FROM users WHERE username = @Username)";
+                        SELECT u2.username
+                        FROM users u1
+                        JOIN friends f ON u1.id = f.user_id
+                        JOIN users u2 ON f.friend_id = u2.id
+                        WHERE u1.username = @Username";
 
                     using (var command = new NpgsqlCommand(query, connection))
                     {
@@ -196,21 +150,22 @@ namespace PingServer
                         {
                             while (await reader.ReadAsync())
                             {
-                                friendsUsernames.Add(reader.GetString(0));
+                                friendUsernames.Add(reader.GetString(0));
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"An error occurred while retrieving friends list: {ex.Message}");
+                return null;
             }
 
-            return friendsUsernames;
+            Console.WriteLine($"I got {friendUsernames}");
+            return friendUsernames;
         }
 
-        public async Task<bool> AddFriend(string username, string friendUsername)
+        public async Task<bool> IsUsersFriend(int userId, int friendId)
         {
             try
             {
@@ -218,25 +173,34 @@ namespace PingServer
                 {
                     await connection.OpenAsync();
 
-                    string userIdQuery = "SELECT id FROM users WHERE username = @Username";
-                    int userId;
-
-                    using (var userIdCommand = new NpgsqlCommand(userIdQuery, connection))
+                    string query = "SELECT 1 FROM friends WHERE user_id = @UserId AND friend_id = @FriendId LIMIT 1";
+                    using (var command = new NpgsqlCommand(query, connection))
                     {
-                        userIdCommand.Parameters.AddWithValue("@Username", username);
-                        userId = (int)(await userIdCommand.ExecuteScalarAsync() ?? throw new Exception("User not found"));
+                        command.Parameters.AddWithValue("@UserId", userId);
+                        command.Parameters.AddWithValue("@FriendId", friendId);
+
+                        var result = await command.ExecuteScalarAsync();
+                        return result != null;
                     }
+                }
+            }
+            catch (Exception)
+            {
+                // This is returned so that this friend won't get inserted again
+                // as we don't know if this friend is in the DB or not
+                return true;
+            }
+        }
 
-                    string friendIdQuery = "SELECT id FROM users WHERE username = @FriendUsername";
-                    int friendId;
+        public async Task<bool> InsertFriendIntoFriends(int userId, int friendId)
+        {
+            try
+            {
+                using (var connection = new NpgsqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
 
-                    using (var friendIdCommand = new NpgsqlCommand(friendIdQuery, connection))
-                    {
-                        friendIdCommand.Parameters.AddWithValue("@FriendUsername", friendUsername);
-                        friendId = (int)(await friendIdCommand.ExecuteScalarAsync() ?? throw new Exception("Friend not found"));
-                    }
-
-                    string query = "INSERT INTO friends (id, friend) VALUES (@UserId, @FriendId)";
+                    string query = "INSERT INTO friends (user_id, friend_id) VALUES (@UserId, @FriendId)";
                     using (var command = new NpgsqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@UserId", userId);
@@ -246,9 +210,8 @@ namespace PingServer
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"An error occurred while adding friend: {ex.Message}");
                 return false;
             }
 

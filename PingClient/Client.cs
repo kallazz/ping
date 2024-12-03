@@ -33,35 +33,22 @@ namespace PingClient
 
         public bool KeyExchangeCompleted => keyExchangeCompleted;
 
-        // TODO: Rebuild as login is not handled here
         public async Task<bool> Login(string username, string password)
         {
-            try
+            var request = new LoginRequest
             {
-                var request = new LoginRequest
-                {
-                    Username = username,
-                    Password = password
-                };
+                Username = username,
+                Password = password
+            };
 
-                var response = await _client.LoginAsync(request);
-                if (response.Status == 0)
-                {
-                    Console.WriteLine($"User {username} logged in");
-                    clientUsername = username;
-                    return true;
-                }
-                else
-                {
-                    Console.WriteLine(response.Message);
-                    return false;
-                }
-            }
-            catch (Exception ex)
+            var response = await _client.LoginAsync(request);
+
+            if (response.Status == 0)
             {
-                Console.WriteLine($"An error occurred during login: {ex.Message}");
-                return false;
+                clientUsername = username;
+                return true;
             }
+            return false;
         }
 
         public async Task<bool> Register(string username, string email, string password1, string password2)
@@ -75,32 +62,29 @@ namespace PingClient
             };
 
             var response = await _client.RegisterAsync(request);
+
             if (response.Status == 0)
             {
-                Console.WriteLine($"User {username} registered");
                 return true;
             }
-            else
-            {
-                Console.WriteLine(response.Message);
-                return false;
-            }
-
+            return false;
         }
 
-        public async Task SendMessage(string message, string recipient)
+        public async Task SendMessage(string message, string recipientUsername)
         {
-            if (!keyExchangeCompleted)
-            {
-                throw new InvalidOperationException("Shared key has not been established.");
-            }
+            // TODO: handle key exchange and encryption
+            // if (!keyExchangeCompleted)
+            // {
+            //     throw new InvalidOperationException("Shared key has not been established.");
+            // }
 
-            var encryptedMessage = encryptor.Encrypt(message);
+            // var encryptedMessage = encryptor.Encrypt(message);
             var request = new MessageRequest
             {
                 Client = clientUsername,
-                Recipient = recipient,
-                Message = Convert.ToBase64String(encryptedMessage)
+                Recipient = recipientUsername,
+                Message = message
+                // Message = Convert.ToBase64String(encryptedMessage)
             };
 
             var response = await _client.SendMessageAsync(request);
@@ -115,7 +99,7 @@ namespace PingClient
             }
         }
 
-        public async Task ProposeKeyExchange(string recipient)
+        public async Task ProposeKeyExchange(string recipientUsername)
         {
             if (keyExchangeCompleted)
             {
@@ -129,7 +113,7 @@ namespace PingClient
             var request = new KeyExchangeRequest
             {
                 Client = clientUsername,
-                Recipient = recipient,
+                Recipient = recipientUsername,
                 PublicKey = Google.Protobuf.ByteString.CopyFrom(encryptor.PublicKey),
                 Init = true
             };
@@ -205,50 +189,37 @@ namespace PingClient
             }
         }
 
-        public async Task<List<string>> GetFriendsList()
+        public async Task<List<string>?> GetFriendsList()
         {
             var friendsList = new List<string>();
-            using var call = _client.GetFriendsList(new FriendListRequest { Client = clientUsername });
+            var request = new FriendListRequest
+            {
+                Client = clientUsername
+            };
 
-            try
+            var response = await _client.GetFriendsAsync(request);
+
+            if (response.ExitCode.Status == 1)
             {
-                while (await call.ResponseStream.MoveNext(default))
-                {
-                    var response = call.ResponseStream.Current;
-                    var friends = response.MessageResponse.Content.Split(';');
-                    friendsList.AddRange(friends);
-                }
-            }
-            catch (RpcException ex)
-            {
-                Console.WriteLine($"An error occurred while getting friends list: {ex.Status.Detail}");
+                return null;
             }
 
+            var friends = response.MessageResponse.Content.Split(';');
+            friendsList.AddRange(friends);
             return friendsList;
         }
 
-        public async Task AddFriend(string friend)
+        public async Task<bool> AddFriend(string friendUsername)
         {
             var request = new AddFriendRequest
             {
                 Client = clientUsername,
-                Friend = friend
+                Friend = friendUsername
             };
 
-            using var call = _client.AddFriend(request);
+            var response = await _client.AddFriendAsync(request);
 
-            try
-            {
-                while (await call.ResponseStream.MoveNext(default))
-                {
-                    var response = call.ResponseStream.Current;
-                    Console.WriteLine(response.MessageResponse.Content);
-                }
-            }
-            catch (RpcException ex)
-            {
-                Console.WriteLine($"An error occurred while adding friend: {ex.Status.Detail}");
-            }
+            return (response.Status == 0) ? true : false;
         }
     }
 }
