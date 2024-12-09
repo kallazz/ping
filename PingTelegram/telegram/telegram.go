@@ -2,11 +2,14 @@ package telegram
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
+	"github.com/celestix/gotgproto/dispatcher/handlers/filters"
+	"github.com/celestix/gotgproto/ext"
 	"github.com/celestix/gotgproto/sessionMaker"
 )
 
@@ -42,11 +45,16 @@ func NewClient() (*Client, error) {
 
 	clientDispatcher := client.Dispatcher
 
-	clientDispatcher.AddHandler(handlers.NewCommand("start"))
+	clientDispatcher.AddHandler(handlers.NewMessage(filters.Message.Text, printMessageToConsole))
 	client.Idle()
 	//fmt.Println(client)
 
 	return &Client{
 		C: client,
 	}, nil
+}
+
+func printMessageToConsole(ctx *ext.Context, update *ext.Update) error {
+	fmt.Println(update.EffectiveMessage.Message.Message)
+	return nil
 }
