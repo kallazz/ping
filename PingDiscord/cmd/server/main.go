@@ -65,9 +65,9 @@ func (s *Server) SendMessage(ctx context.Context, in *ping.MessageRequest) (*pin
 
 	s.broadcastMessage(&ping.ServerMessage{
 		MessageResponse: &ping.MessageResponse{
-			Type:    "Broadcast",
+			Type:    in.Client,
 			Content: in.Message,
-			Sender:  in.Client,
+			Sender:  in.Author,
 		},
 	})
 

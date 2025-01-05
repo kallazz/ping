@@ -57,20 +57,21 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
+
 	if m.Content == "ping" {
 		s.ChannelMessageSend(m.ChannelID, "Pong!")
 	}
 	if m.Content == "pong" {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
 	}
-	response, err := sendMessageToPingGRPCServer(m.Author.ID, s.State.User.ID, m.Content)
+	response, err := sendMessageToPingGRPCServer(m.Author.ID, m.ChannelID, m.Content)
 	if err != nil {
 		return
 	}
 	fmt.Printf("Response from ping server: %v\n", response)
 }
 
-func sendMessageToPingGRPCServer(client, recipient, message string) (string, error) {
+func sendMessageToPingGRPCServer(author, recipient, message string) (string, error) {
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return "", fmt.Errorf("failed to connect with server: %v", err)
@@ -80,7 +81,8 @@ func sendMessageToPingGRPCServer(client, recipient, message string) (string, err
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	msgRequest := &ping.MessageRequest{}
-	msgRequest.Client = client
+	msgRequest.Client = "Discord"
+	msgRequest.Author = author
 	msgRequest.Recipient = recipient
 	msgRequest.Message = message
 	r, err := c.SendMessage(ctx, msgRequest)
