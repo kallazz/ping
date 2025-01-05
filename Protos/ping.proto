@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 option csharp_namespace = "PingServer";
+option go_package = "github.com/kallazz/ping";
 
 service PingService {
   rpc SendMessage (MessageRequest) returns (ExitCode);

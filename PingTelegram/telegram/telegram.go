@@ -55,6 +55,13 @@ func NewClient() (*Client, error) {
 }
 
 func printMessageToConsole(ctx *ext.Context, update *ext.Update) error {
-	fmt.Println(update.EffectiveMessage.Message.Message)
+	senderUsername, ok := update.EffectiveUser().GetUsername()
+	if !ok {
+		return errors.New("Sender's username not set")
+	}
+	messageText := update.EffectiveMessage.GetMessage()
+	fmt.Println(ctx)
+	fmt.Println(update)
+	fmt.Println(senderUsername, messageText)
 	return nil
 }
