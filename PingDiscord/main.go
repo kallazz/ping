@@ -25,6 +25,7 @@ func init() {
 }
 
 func main() {
+
 	dg, err := discordgo.New("Bot " + Token)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
@@ -39,6 +40,8 @@ func main() {
 		fmt.Println("error opening connection,", err)
 		return
 	}
+
+	go receiveMessagesFromPingGRPCServer(dg)
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
@@ -83,4 +86,53 @@ func sendMessageToPingGRPCServer(client, recipient, message string) (string, err
 	r, err := c.SendMessage(ctx, msgRequest)
 	// log.Printf("Response from gRPC server's SayHello function: %s", r.GetMessage())
 	return r.GetMessage(), nil
+}
+
+func receiveMessagesFromPingGRPCServer(dg *discordgo.Session) {
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Println("failed to connect with gRPC server:", err)
+		return
+	}
+	defer conn.Close()
+
+	c := ping.NewPingServiceClient(conn)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, err := c.ReceiveMessages(ctx, &ping.Empty{})
+	if err != nil {
+		fmt.Println("error starting gRPC stream:", err)
+		return
+	}
+
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			fmt.Println("error receiving message from gRPC stream:", err)
+			return
+		}
+
+		// Broadcast the received message to all Discord channels
+		broadcastMessageToDiscord(dg, msg)
+	}
+}
+
+func broadcastMessageToDiscord(dg *discordgo.Session, msg *ping.ServerMessage) {
+	guilds := dg.State.Guilds
+	for _, guild := range guilds {
+		// Get the first available text channel in the guild
+		channels, err := dg.GuildChannels(guild.ID)
+		if err != nil {
+			fmt.Println("error fetching channels for guild:", guild.ID, err)
+			continue
+		}
+
+		for _, channel := range channels {
+			if channel.Type == discordgo.ChannelTypeGuildText {
+				dg.ChannelMessageSend(channel.ID, fmt.Sprintf("[%s] %s: %s", msg.MessageResponse.Type, msg.MessageResponse.Sender, msg.MessageResponse.Content))
+				break
+			}
+		}
+	}
 }
