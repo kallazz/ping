@@ -26,6 +26,7 @@ message MessageRequest {
   string client = 1;
   string recipient = 2;
   string message = 3;
+  string author = 4;
 }
 
 message KeyExchangeRequest {
