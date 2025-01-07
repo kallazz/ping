@@ -5,8 +5,11 @@ option go_package = "github.com/kallazz/ping";
 
 service PingService {
   rpc SendMessage (MessageRequest) returns (ExitCode);
-  rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
+
+
+  
+  rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
   rpc Login (LoginRequest) returns (ExitCode);
   rpc Register (RegisterRequest) returns (ExitCode);
   rpc GetFriends (FriendListRequest) returns (ServerMessage);

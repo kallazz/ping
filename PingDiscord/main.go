@@ -91,7 +91,7 @@ func sendMessageToPingGRPCServer(author, recipient, message string) (string, err
 }
 
 func receiveMessagesFromPingGRPCServer(dg *discordgo.Session) {
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Println("failed to connect with gRPC server:", err)
 		return

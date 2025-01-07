@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	ping "github.com/kallazz/Ping/PingDiscord/pb"
+	ping "github.com/kallazz/Ping/pb"
 	"google.golang.org/grpc"
 )
 
