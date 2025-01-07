@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"time"
@@ -52,7 +54,6 @@ func NewClient() (*Client, error) {
 	clientDispatcher := client.Dispatcher
 
 	clientDispatcher.AddHandler(handlers.NewMessage(filters.Message.Text, sendMessage))
-	client.Idle()
 	//fmt.Println(client)
 
 	return &Client{
@@ -98,6 +99,89 @@ func sendMessageToPingGRPCServer(author, recipient, message string) (string, err
 	r, err := c.SendMessage(ctx, msgRequest)
 	// log.Printf("Response from gRPC server's SayHello function: %s", r.GetMessage())
 	return r.GetMessage(), nil
+}
+
+// receiveMessagesFromPingGRPCServer connects to your gRPC server, listens for messages,
+// and broadcasts them to Telegram using the provided gotgproto.Client.
+func ReceiveMessagesFromPingGRPCServer(client *gotgproto.Client) error {
+	fmt.Println("In receive")
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return fmt.Errorf("failed to connect with gRPC server: %v", err)
+	}
+	defer conn.Close()
+
+	c := ping.NewPingServiceClient(conn)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start the server-streaming RPC.
+	stream, err := c.ReceiveMessages(ctx, &ping.Empty{})
+	if err != nil {
+		return fmt.Errorf("error starting gRPC stream: %v", err)
+	}
+
+	// Continuously read messages from the stream.
+	for {
+		serverMsg, err := stream.Recv()
+		if err != nil {
+			return fmt.Errorf("error receiving message from gRPC stream: %v", err)
+		}
+
+		// Relay that message to Telegram.
+		if err := broadcastMessageToTelegram(client, serverMsg); err != nil {
+			log.Printf("failed to broadcast message to Telegram: %v\n", err)
+		}
+	}
+}
+
+// broadcastMessageToTelegram sends the incoming gRPC ServerMessage to a particular
+// Telegram chat (or multiple chats, if you adapt it). In this example, we pull the
+// chat ID from an environment variable called TELEGRAM_BROADCAST_CHAT_ID.
+func broadcastMessageToTelegram(client *gotgproto.Client, msg *ping.ServerMessage) error {
+	fmt.Println("in broadcast message to telegram")
+
+	// The text you want to send to Telegram.
+	text := fmt.Sprintf("[%s] %s: %s",
+		msg.GetMessageResponse().GetType(),
+		msg.GetMessageResponse().GetSender(),
+		msg.GetMessageResponse().GetContent(),
+	)
+
+	// Get the channel ID from environment or config
+	chatIDString, ok := os.LookupEnv("TELEGRAM_BROADCAST_CHAT_ID")
+	if !ok {
+		return fmt.Errorf("environment variable TELEGRAM_BROADCAST_CHAT_ID not set")
+	}
+
+	channelID, err := strconv.ParseInt(chatIDString, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid channel ID: %v", err)
+	}
+
+	// Fetch the AccessHash for the channel
+	accessHash, err := GetChannelAccessHash(client, channelID)
+	if err != nil {
+		return fmt.Errorf("failed to get access hash: %v", err)
+	}
+
+	// Use InputPeerChannel to send the message
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = client.API().MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
+		Peer: &tg.InputPeerChannel{
+			ChannelID:  channelID,
+			AccessHash: accessHash,
+		},
+		Message:  text,
+		RandomID: rand.Int63(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to send Telegram message: %v", err)
+	}
+
+	return nil
 }
 
 func printMessageToConsole(ctx *ext.Context, update *ext.Update) error {
@@ -176,4 +260,32 @@ func GetSender(u *ext.Update) (*tg.User, *tg.Chat, *tg.Channel) {
 		}
 	}
 	return nil, nil, nil
+}
+
+func GetChannelAccessHash(client *gotgproto.Client, channelID int64) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	inputChannel := &tg.InputChannel{
+		ChannelID:  channelID,
+		AccessHash: 0, // Initially set to 0; it will be populated by Telegram.
+	}
+
+	response, err := client.API().ChannelsGetChannels(ctx, []tg.InputChannelClass{inputChannel})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get channel details: %v", err)
+	}
+
+	// Use GetChats() method to retrieve the list of chats
+	chats := response.GetChats()
+	if len(chats) == 0 {
+		return 0, errors.New("no channel found with the given ID")
+	}
+
+	channel, ok := chats[0].(*tg.Channel)
+	if !ok {
+		return 0, errors.New("unexpected chat type")
+	}
+
+	return channel.AccessHash, nil
 }
