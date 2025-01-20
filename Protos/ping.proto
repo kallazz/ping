@@ -8,7 +8,7 @@ service PingService {
   rpc ReceiveMessages (Empty) returns (stream ServerMessage);
 
 
-
+  
   rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
   rpc Login (LoginRequest) returns (ExitCode);
   rpc Register (RegisterRequest) returns (ExitCode);
