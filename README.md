@@ -4,15 +4,19 @@
 
 This project requires two `.env` files for configuration:
 
-### PingClient/.env
+### PingDiscord/.env
 
 ```env
 HOST=<your_server_host>
 PORT=<your_server_port>
 ```
 
-### PingServer/.env
+### PingTelegram/.env
 ```env
+HOST=<your_server_host>
 PORT=<your_server_port>
-DATABASE_CONNECTION_STRING=<your_postgresql_database_connection_string>
+APPID=<your_app_id>
+APIHASH=<your_api_hash>
+PHONE=<your_phone_number>
+TELEGRAM_BROADCAST_CHAT_ID=<your_bot_channel_id>
 ```

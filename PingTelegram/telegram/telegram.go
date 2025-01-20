@@ -83,7 +83,10 @@ func sendMessage(ctx *ext.Context, update *ext.Update) error {
 }
 
 func sendMessageToPingGRPCServer(author, recipient, message string) (string, error) {
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+    host := os.Getenv("HOST")
+    port := os.Getenv("PORT")
+	address := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return "", fmt.Errorf("failed to connect with server: %v", err)
 	}
@@ -105,7 +108,10 @@ func sendMessageToPingGRPCServer(author, recipient, message string) (string, err
 // and broadcasts them to Telegram using the provided gotgproto.Client.
 func ReceiveMessagesFromPingGRPCServer(client *gotgproto.Client) error {
 	fmt.Println("In receive")
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+    host := os.Getenv("HOST")
+    port := os.Getenv("PORT")
+	address := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to connect with gRPC server: %v", err)
 	}

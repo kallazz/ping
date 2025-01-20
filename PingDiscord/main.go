@@ -13,6 +13,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	ping "github.com/kallazz/Ping/PingDiscord/pb"
 	"google.golang.org/grpc"
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -23,6 +24,11 @@ var (
 func init() {
 	flag.StringVar(&Token, "t", "", "Bot Token")
 	flag.Parse()
+
+    if err := godotenv.Load(); err != nil {
+        fmt.Println("Error loading .env file")
+        os.Exit(1)
+    }
 }
 
 func main() {
@@ -73,7 +79,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func sendMessageToPingGRPCServer(author, recipient, message string) (string, error) {
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	host := os.Getenv("HOST")
+    port := os.Getenv("PORT")
+	address := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return "", fmt.Errorf("failed to connect with server: %v", err)
 	}
@@ -92,7 +101,10 @@ func sendMessageToPingGRPCServer(author, recipient, message string) (string, err
 }
 
 func receiveMessagesFromPingGRPCServer(dg *discordgo.Session) {
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	host := os.Getenv("HOST")
+    port := os.Getenv("PORT")
+	address := fmt.Sprintf("%s:%s", host, port)
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		fmt.Println("failed to connect with gRPC server:", err)
 		return
