@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+option csharp_namespace = "PingServer";
+option go_package = "github.com/kallazz/ping";
+
+service PingService {
+  rpc SendMessage (MessageRequest) returns (ExitCode);
+  rpc ReceiveMessages (Empty) returns (stream ServerMessage);
+
+
+
+  rpc ProposeKeyExchange (KeyExchangeRequest) returns (ExitCode);
+  rpc Login (LoginRequest) returns (ExitCode);
+  rpc Register (RegisterRequest) returns (ExitCode);
+  rpc GetFriends (FriendListRequest) returns (ServerMessage);
+  rpc AddFriend (AddFriendRequest) returns (ExitCode);
+}
+
+message AddFriendRequest {
+  string client = 1;
+  string friend = 2;
+}
+
+message FriendListRequest {
+  string client = 1;
+}
+
+message MessageRequest {
+  string client = 1;
+  string recipient = 2;
+  string message = 3;
+  string author = 4;
+}
+
+message KeyExchangeRequest {
+  string client = 1;
+  string recipient = 2;
+  bytes publicKey = 3;
+  bool init = 4;
+}
+
+message RegisterRequest {
+  string username = 1;
+  string email = 2;
+  string password1 = 3;
+  string password2 = 4;
+}
+
+message MessageResponse {
+  string type = 1;
+  string content = 2;
+  string sender = 3;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message ExitCode {
+  int32 status = 1;
+  string message = 2;
+}
+
+message ServerMessage {
+  MessageResponse messageResponse = 1;
+  ExitCode exitCode = 2;
+}
+
+message Empty {
+  string client = 1;
+}
