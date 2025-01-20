@@ -264,3 +264,4 @@ FakesAssemblies/
 
 # Environmental files
 .env
+/grpc-go-1.69.2
