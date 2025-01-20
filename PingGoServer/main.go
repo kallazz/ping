@@ -88,7 +88,7 @@ func main() {
 		clientStreams: make(map[string]ping.PingService_ReceiveMessagesServer), // Initialize the map
 	}
 	ping.RegisterPingServiceServer(s, server)
-	log.Printf("gRPC server listening at %v", lis.Addr())
+	log.Printf("gRPC server listening at %s", lis.Addr().String())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
