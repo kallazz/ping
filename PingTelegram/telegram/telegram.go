@@ -115,8 +115,10 @@ func ReceiveMessagesFromPingGRPCServer(client *gotgproto.Client) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	connect_req := &ping.Empty{Client: "TelegramBot"}
+
 	// Start the server-streaming RPC.
-	stream, err := c.ReceiveMessages(ctx, &ping.Empty{})
+	stream, err := c.ReceiveMessages(ctx, connect_req)
 	if err != nil {
 		return fmt.Errorf("error starting gRPC stream: %v", err)
 	}
@@ -128,9 +130,14 @@ func ReceiveMessagesFromPingGRPCServer(client *gotgproto.Client) error {
 			return fmt.Errorf("error receiving message from gRPC stream: %v", err)
 		}
 
+		log.Printf("Received message from PING server: %v\n", serverMsg)
+
 		// Relay that message to Telegram.
-		if err := broadcastMessageToTelegram(client, serverMsg); err != nil {
-			log.Printf("failed to broadcast message to Telegram: %v\n", err)
+		// If msg is already a Telegram message, you can skip this step.
+		if serverMsg.GetMessageResponse().GetType() != "Telegram" {
+			if err := broadcastMessageToTelegram(client, serverMsg); err != nil {
+				log.Printf("failed to broadcast message to Telegram: %v\n", err)
+			}
 		}
 	}
 }
@@ -169,6 +176,7 @@ func broadcastMessageToTelegram(client *gotgproto.Client, msg *ping.ServerMessag
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	log.Printf("Sending message to channel: %s\n", text)
 	_, err = client.API().MessagesSendMessage(ctx, &tg.MessagesSendMessageRequest{
 		Peer: &tg.InputPeerChannel{
 			ChannelID:  channelID,

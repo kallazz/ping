@@ -52,7 +52,7 @@ func (s *Server) broadcastMessage(msg *ping.ServerMessage) {
 	defer s.mu.Unlock()
 
 	for clientID, stream := range s.clientStreams {
-		fmt.Printf("Sending message to client %s\n", clientID)
+		fmt.Printf("Sending message to client %s %s\n", clientID, msg.MessageResponse.Content)
 		if err := stream.Send(msg); err != nil {
 			fmt.Printf("Error sending message to client %s: %v\n", clientID, err)
 			delete(s.clientStreams, clientID) // Remove disconnected clients

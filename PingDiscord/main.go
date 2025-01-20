@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	ping "github.com/kallazz/Ping/PingDiscord/pb"
@@ -102,7 +103,11 @@ func receiveMessagesFromPingGRPCServer(dg *discordgo.Session) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, err := c.ReceiveMessages(ctx, &ping.Empty{})
+	// define Empty message
+
+	connect_req := &ping.Empty{Client: "DiscordBot"}
+
+	stream, err := c.ReceiveMessages(ctx, connect_req)
 	if err != nil {
 		fmt.Println("error starting gRPC stream:", err)
 		return
@@ -116,7 +121,14 @@ func receiveMessagesFromPingGRPCServer(dg *discordgo.Session) {
 		}
 
 		// Broadcast the received message to all Discord channels
-		broadcastMessageToDiscord(dg, msg)
+		// if msg is already a Discord message, you can skip this step
+		if msg.MessageResponse.Type != "Discord" && !strings.Contains(msg.MessageResponse.Content, "[Discord]") {
+			fmt.Println("Broadcasting message to Discord:", msg.MessageResponse.Content)
+			broadcastMessageToDiscord(dg, msg)
+		}
+
+		// micro sleep 
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
@@ -132,6 +144,7 @@ func broadcastMessageToDiscord(dg *discordgo.Session, msg *ping.ServerMessage) {
 
 		for _, channel := range channels {
 			if channel.Type == discordgo.ChannelTypeGuildText {
+				fmt.Println("Broadcasting message to channel:", channel.ID)
 				dg.ChannelMessageSend(channel.ID, fmt.Sprintf("[%s] %s: %s", msg.MessageResponse.Type, msg.MessageResponse.Sender, msg.MessageResponse.Content))
 				break
 			}
