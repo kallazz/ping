@@ -71,14 +71,21 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Content == "pong" {
 		s.ChannelMessageSend(m.ChannelID, "Ping!")
 	}
-	response, err := sendMessageToPingGRPCServer(m.Author.ID, m.ChannelID, m.Content)
+
+    author, err := s.User(m.Author.ID)
+    if err != nil {
+		fmt.Printf("failed to fetch author details: %v\n", err)
+		return
+    }
+
+	response, err := sendMessageToPingGRPCServer(author.Username, m.ChannelID, m.Content)
 	if err != nil {
 		return
 	}
 	fmt.Printf("Response from ping server: %v\n", response)
 }
 
-func sendMessageToPingGRPCServer(author, recipient, message string) (string, error) {
+func sendMessageToPingGRPCServer(authorUsername, recipientID, message string) (string, error) {
 	host := os.Getenv("HOST")
     port := os.Getenv("PORT")
 	address := fmt.Sprintf("%s:%s", host, port)
@@ -90,13 +97,14 @@ func sendMessageToPingGRPCServer(author, recipient, message string) (string, err
 	c := ping.NewPingServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+
 	msgRequest := &ping.MessageRequest{}
 	msgRequest.Client = "Discord"
-	msgRequest.Author = author
-	msgRequest.Recipient = recipient
+	msgRequest.Author = authorUsername
+	msgRequest.Recipient = recipientID
 	msgRequest.Message = message
 	r, err := c.SendMessage(ctx, msgRequest)
-	// log.Printf("Response from gRPC server's SayHello function: %s", r.GetMessage())
+
 	return r.GetMessage(), nil
 }
 
